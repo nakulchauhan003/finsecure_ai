@@ -1,0 +1,93 @@
+.main-container {
+    padding-top: 100px;
+    display: flex;
+    height: 100vh;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    box-sizing: border-box;
+    gap: 2rem;
+}
+
+.About-container {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    color: rgb(82, 81, 81);
+    font-size: 4rem;
+    flex-shrink: 0;
+    align-self: center;
+    letter-spacing: 5px;
+}
+
+.wrapper {
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    flex: 1;
+    flex-wrap: wrap;
+}
+
+.main-container-first {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    flex: 1;
+    padding: 0.8rem;
+    box-sizing: border-box;
+}
+
+.main-container-third {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: 0.8rem 2rem;
+    box-sizing: border-box;
+}
+
+.explore-button {
+    width: fit-content;
+    background-color: #000;
+    color: #fff;
+    padding: 1rem 1.4rem;
+    font-size: 1.2rem;
+    letter-spacing: 0.4px;
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background-color 0.3s ease;
+}
+
+.explore-button:hover {
+    background-color: #333;
+}
+.people-section{
+    padding-block:1.4rem;
+    display: flex;
+    gap:1rem;
+}
+.people-section-image{
+    border-radius: 50%;
+    min-width: 60px;
+    width: 60px;
+}
+.people-section-details{
+    display: flex;
+    flex-direction: column;
+    color:#000000;
+}
+@media (max-width: 800px) {
+    .main-container {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .wrapper {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .About-container {
+        writing-mode: horizontal-tb;
+        transform: none;
+        align-self: flex-start;
+    }
+}

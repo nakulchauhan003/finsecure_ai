@@ -1,0 +1,84 @@
+.DashboardSideBar{
+    height: 100vh;
+    min-width:60px;
+    width: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    background:white;
+    color:rgb(0, 0, 0);
+    font-size: 1rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid rgb(172, 172, 172);
+    transition: width 0.6s ease;
+}
+.DashboardOptions{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap:0.6rem;
+    padding-block:1rem;
+    padding-inline:0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.DashboardOptions>div{
+    visibility: hidden;
+}
+.finscope{
+    justify-content: flex-start;
+}
+.finscope-heading{
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0s ease, visibility 0.3s ease;
+    width: fit-content;
+}
+.DashboardSideBar:hover{
+    width: fit-content;
+    .DashboardOptions>div{
+        opacity: 1;
+        visibility: visible;
+    }
+    .finscope-heading{
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+.DashboardOptions:hover{
+    color: rgb(60, 190, 255);
+}
+.dashboardOptionColor{
+    color:rgb(60, 190, 255);
+}
+.DashboardSideBar::-webkit-scrollbar{
+    display: none;
+}
+.mobile-sidebar{
+    display: none;
+}
+@media(max-width:700px){
+    .DashboardSideBar{
+        width:60px;
+        min-width: 60px;
+    }
+    .activeside-bar{
+        position: absolute;
+        right:0;
+        border-left:1px solid rgb(128, 126, 126);
+    }
+    .mobile-sidebar{
+        position: absolute;
+        display: none;
+        top:10px;
+        right:10px;
+        padding:2px;
+        border-radius:10%;
+    }
+    .unactive-side-bar{
+        display: none;
+    }
+}

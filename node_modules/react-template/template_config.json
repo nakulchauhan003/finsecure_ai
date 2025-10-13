@@ -1,0 +1,15 @@
+{
+  "description": "A React-based data visualization dashboard with Recharts integration. Features multiple chart components (line, area, bar, pie, radar, gauge, treemap, bubble), responsive layout with Tailwind CSS, and mock data for immediate demonstration. Ideal for personal portfolios, data analysis showcases, and dashboard prototypes.",
+  "required_fields": [],
+  "required_files": [
+    "index.html",
+    "src/main.jsx",
+    "src/App.jsx",
+    "src/index.css",
+    "vite.config.js"
+  ],
+  "lang": "JavaScript",
+  "framework": "React",
+  "name": "dashboard",
+  "scene": "Personal Demonstration Template"
+}

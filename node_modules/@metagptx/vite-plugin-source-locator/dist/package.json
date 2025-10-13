@@ -1,0 +1,39 @@
+{
+  "name": "@metagptx/vite-plugin-source-locator",
+  "version": "0.0.5",
+  "description": "A Vite plugin for source code location tracking",
+  "main": "index.js",
+  "module": "index.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
+    }
+  },
+  "dependencies": {
+    "@babel/parser": "^7.27.0",
+    "@babel/traverse": "^7.27.0",
+    "@babel/generator": "^7.27.0",
+    "@babel/types": "^7.27.0",
+    "magic-string": "^0.30.17",
+    "@vue/compiler-sfc": "^3.5.13",
+    "@vue/compiler-dom": "^3.5.13"
+  },
+  "keywords": [
+    "vite",
+    "vite-plugin",
+    "dom",
+    "debug",
+    "source",
+    "locator"
+  ],
+  "author": "caowenyue@fuzhi.ai",
+  "peerDependencies": {
+    "vite": "^3.0.0 || ^4.0.0 || ^5.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

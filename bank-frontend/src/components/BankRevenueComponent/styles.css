@@ -1,0 +1,16 @@
+.dashboard-revenue-page {
+    min-height: 100%;
+    background-color: #f3f4f6;
+}
+
+.dashboard-revenue-content {
+    padding: 1.5rem;
+}
+
+.card {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
