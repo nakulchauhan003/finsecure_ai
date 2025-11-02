@@ -1,21 +1,11 @@
-import { useEffect, useState } from "react"
+import { useAuthContext } from '../contexts/AuthContext';
 
-
-const TOKEN_KEY = "token";
-
-const useAuth=()=>{
-    const [isLoggedIn,setIsLoggedIn]=useState(()=>{
-      return !!localStorage.getItem(TOKEN_KEY);
-    });
-    useEffect(() => {
-        const handleStorageChange = () => {
-          setIsLoggedIn(!!localStorage.getItem(TOKEN_KEY));
-        };
-        window.addEventListener("storage", handleStorageChange);
-        return () => {
-          window.removeEventListener("storage", handleStorageChange);
-        };
-      }, []);
-    return {isLoggedIn};
+const useAuth = () => {
+    const { session, loading } = useAuthContext();
+    return { 
+        isLoggedIn: !!session, 
+        loading 
+    };
 }
+
 export default useAuth;

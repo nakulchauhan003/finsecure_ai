@@ -12,6 +12,7 @@
   "dependencies": {
     "@delicious-simplicity/next-image-contentful-loader": "^1.0.4",
     "@radix-ui/react-avatar": "^1.1.9",
+    "@supabase/supabase-js": "^2.78.0",
     "@tabler/icons-react": "^3.31.0",
     "@types/chart.js": "^2.9.41",
     "axios": "^1.9.0",

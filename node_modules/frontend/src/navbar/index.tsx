@@ -4,10 +4,11 @@ import React, { memo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../Hooks/useAuth";
+import { supabase } from '../lib/supabase';
 import './styles.css';
 
 function NavHeader() {
-  const {isLoggedIn}=useAuth();
+  const {isLoggedIn, loading}=useAuth();
   const [position, setPosition] = useState({
     left: 0,
     width: 0,
@@ -15,15 +16,25 @@ function NavHeader() {
   });
   const navigate = useNavigate();
 
-  const handleLogOut=()=>{
-    localStorage.removeItem('token');
-    navigate('/login');
+  const handleLogOut=async ()=>{
+    try {
+      await supabase.auth.signOut();
+      localStorage.removeItem('supabase_token');
+      localStorage.removeItem('user_id');
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }
+
+  if (loading) {
+    return null; // Don't render navbar while loading
   }
 
   return (
     <>
           <ul
-            className="relative mx-auto flex w-fit rounded-full border-2 border-black bg-white p-1"
+            className="relative mx-auto flex w-fit rounded-full border-2 border-purple-400/50 bg-white/10 backdrop-blur-lg p-1 shadow-lg shadow-purple-500/30"
             onMouseLeave={() => setPosition((pv) => ({ ...pv, opacity: 0 }))}
           >
             <Tab setPosition={setPosition}><Link className={`navBarComponentOptions ${location.pathname==='/'?"highlightedOptionColor":""}`} to={"/"}>Home</Link></Tab>
@@ -58,7 +69,7 @@ const Tab = ({
           left: ref.current.offsetLeft,
         });
       }}
-      className="relative z-10 block cursor-pointer px-3 py-1.5 text-xs uppercase text-white mix-blend-difference md:px-5 md:py-3 md:text-base"
+      className="relative z-10 block cursor-pointer px-3 py-1.5 text-xs uppercase text-purple-200 hover:text-white transition-colors md:px-5 md:py-3 md:text-base"
     >
       {children}
     </li>
@@ -69,7 +80,7 @@ const Cursor = ({ position }: { position: any }) => {
   return (
     <motion.li
       animate={position}
-      className="absolute z-0 h-7 rounded-full bg-black md:h-12"
+      className="absolute z-0 h-7 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 md:h-12"
     />
   );
 };

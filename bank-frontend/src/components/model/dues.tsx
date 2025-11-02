@@ -1,6 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import axios from 'axios';
-import { format, addDays, differenceInDays, isValid } from 'date-fns';
+import React, { useState, useCallback, FC } from 'react';
+import { format, addDays, differenceInDays, isValid, subMonths } from 'date-fns';
 import {
   ArrowRight,
   Calendar,
@@ -14,6 +13,11 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
+  TrendingUp,
+  Activity,
+  Target,
+  FileText,
+  CreditCard,
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -30,7 +34,7 @@ interface LoanDetails {
   principalAmount: number;
   startDate: string;
   endDate: string;
-  term: number; // In months
+  term: number;
   interestRate: number;
   frequency: 'monthly' | 'quarterly' | 'weekly';
   status: 'active' | 'closed' | 'defaulted';
@@ -85,6 +89,139 @@ interface AuditEntry {
   timestamp: string;
 }
 
+// Mock Data
+const today = new Date();
+const mockCustomer: Customer = {
+  id: 'cust_123',
+  name: 'Rohan Sharma',
+  code: 'CUST-RS-001',
+  email: 'rohan.sharma@example.com',
+};
+
+const mockLoan1Payments: PaymentRecord[] = [
+  {
+    id: 'p1',
+    dueDate: format(subMonths(today, 3), 'yyyy-MM-dd'),
+    paidDate: format(subMonths(today, 3), 'yyyy-MM-dd'),
+    amount: 5000,
+    principalPaid: 4500,
+    interestPaid: 500,
+    status: 'on-time',
+    penaltyAmount: 0,
+    penaltyPaid: 0,
+  },
+  {
+    id: 'p2',
+    dueDate: format(subMonths(today, 2), 'yyyy-MM-dd'),
+    paidDate: format(addDays(subMonths(today, 2), 5), 'yyyy-MM-dd'),
+    amount: 5000,
+    principalPaid: 4550,
+    interestPaid: 450,
+    status: 'late',
+    penaltyAmount: 200,
+    penaltyPaid: 200,
+  },
+  {
+    id: 'p3',
+    dueDate: format(subMonths(today, 1), 'yyyy-MM-dd'),
+    paidDate: format(subMonths(today, 1), 'yyyy-MM-dd'),
+    amount: 5000,
+    principalPaid: 4600,
+    interestPaid: 400,
+    status: 'on-time',
+    penaltyAmount: 0,
+    penaltyPaid: 0,
+  },
+  {
+    id: 'p4',
+    dueDate: format(today, 'yyyy-MM-dd'),
+    paidDate: null,
+    amount: 5000,
+    principalPaid: 0,
+    interestPaid: 0,
+    status: 'pending',
+    penaltyAmount: 0,
+    penaltyPaid: 0,
+  },
+];
+
+const mockLoan1: LoanLedger = {
+  loanDetails: {
+    id: 'loan_abc',
+    principalAmount: 50000,
+    startDate: format(subMonths(today, 3), 'yyyy-MM-dd'),
+    endDate: format(addDays(subMonths(today, 3), 365), 'yyyy-MM-dd'),
+    term: 12,
+    interestRate: 12,
+    frequency: 'monthly',
+    status: 'active',
+  },
+  payments: mockLoan1Payments,
+  prepayments: [],
+  refunds: [
+    {
+      id: 'ref1',
+      date: format(subMonths(today, 2), 'yyyy-MM-dd'),
+      amount: 100,
+      reason: 'Overcharge correction',
+      status: 'processed',
+    },
+  ],
+};
+
+const mockLoan2Payments: PaymentRecord[] = [
+  {
+    id: 'p5',
+    dueDate: format(subMonths(today, 6), 'yyyy-MM-dd'),
+    paidDate: format(subMonths(today, 6), 'yyyy-MM-dd'),
+    amount: 10000,
+    principalPaid: 9000,
+    interestPaid: 1000,
+    status: 'on-time',
+    penaltyAmount: 0,
+    penaltyPaid: 0,
+  },
+  {
+    id: 'p6',
+    dueDate: format(subMonths(today, 3), 'yyyy-MM-dd'),
+    paidDate: format(subMonths(today, 3), 'yyyy-MM-dd'),
+    amount: 10000,
+    principalPaid: 9100,
+    interestPaid: 900,
+    status: 'on-time',
+    penaltyAmount: 0,
+    penaltyPaid: 0,
+  },
+];
+
+const mockLoan2: LoanLedger = {
+  loanDetails: {
+    id: 'loan_xyz',
+    principalAmount: 20000,
+    startDate: format(subMonths(today, 6), 'yyyy-MM-dd'),
+    endDate: format(subMonths(today, 3), 'yyyy-MM-dd'),
+    term: 2,
+    interestRate: 10,
+    frequency: 'quarterly',
+    status: 'closed',
+  },
+  payments: mockLoan2Payments,
+  prepayments: [
+    {
+      id: 'pp1',
+      date: format(subMonths(today, 4), 'yyyy-MM-dd'),
+      amount: 1900,
+      type: 'partial',
+    },
+  ],
+  refunds: [],
+};
+
+const mockData: CustomerDues = {
+  customer: mockCustomer,
+  loans: [mockLoan1, mockLoan2],
+};
+
 // Helper functions
 const calculateDaysRemaining = (installmentsLeft: number, frequency: 'monthly' | 'quarterly' | 'weekly'): number => {
   const daysPerFrequency = {
@@ -92,7 +229,7 @@ const calculateDaysRemaining = (installmentsLeft: number, frequency: 'monthly' |
     monthly: 30,
     quarterly: 90,
   };
-  
+
   return installmentsLeft * daysPerFrequency[frequency];
 };
 
@@ -100,20 +237,20 @@ const calculateInstallmentsLeft = (loan: LoanLedger): number => {
   const successfulPayments = loan.payments.filter(
     payment => payment.status === 'on-time' || payment.status === 'late'
   ).length;
-  
+
   return Math.max(0, loan.loanDetails.term - successfulPayments);
 };
 
 const calculateAccruedInterest = (loan: LoanLedger): number => {
+  if (loan.loanDetails.status !== 'active') return 0;
+
   const { principalAmount, interestRate } = loan.loanDetails;
   const paidPrincipal = loan.payments.reduce((sum, payment) => sum + payment.principalPaid, 0);
   const outstandingPrincipal = Math.max(0, principalAmount - paidPrincipal);
-  
-  // Find the date of the last payment or use start date if no payments
+
   let lastPaymentDate = new Date(loan.loanDetails.startDate);
-  
+
   if (loan.payments.length > 0) {
-    // Filter out payments with null paidDate and sort the rest
     const validPayments = loan.payments
       .filter(payment => payment.paidDate !== null)
       .sort((a, b) => {
@@ -126,19 +263,17 @@ const calculateAccruedInterest = (loan: LoanLedger): number => {
       lastPaymentDate = new Date(validPayments[0].paidDate);
     }
   }
-  
+
   const today = new Date();
   const daysSinceLastPayment = Math.max(0, differenceInDays(today, lastPaymentDate));
-  
-  // Daily interest rate (assuming 365 days per year)
+
   const dailyInterestRate = interestRate / 100 / 365;
-  
+
   return outstandingPrincipal * dailyInterestRate * daysSinceLastPayment;
 };
 
 const calculateTotalPenalties = (loan: LoanLedger): number => {
   return loan.payments.reduce((sum, payment) => {
-    // Only include penalties that haven't been paid
     return sum + Math.max(0, (payment.penaltyAmount - payment.penaltyPaid));
   }, 0);
 };
@@ -147,27 +282,31 @@ const calculatePrepaymentPenalty = (loan: LoanLedger): number => {
   const { principalAmount } = loan.loanDetails;
   const paidPrincipal = loan.payments.reduce((sum, payment) => sum + payment.principalPaid, 0);
   const outstandingPrincipal = Math.max(0, principalAmount - paidPrincipal);
-  
-  // Example: 2% of outstanding principal
+
   return outstandingPrincipal * 0.02;
 };
 
 const calculateNetDues = (loan: LoanLedger): number => {
+  if (loan.loanDetails.status !== 'active') return 0;
+
   const { principalAmount } = loan.loanDetails;
   const paidPrincipal = loan.payments.reduce((sum, payment) => sum + payment.principalPaid, 0);
   const outstandingPrincipal = Math.max(0, principalAmount - paidPrincipal);
-  
+
   const accruedInterest = calculateAccruedInterest(loan);
   const totalPenalties = calculateTotalPenalties(loan);
-  
+
+  const pendingPayment = loan.payments.find(p => p.status === 'pending');
+  const pendingAmount = pendingPayment ? pendingPayment.amount : 0;
+
   const totalRefunds = loan.refunds.reduce((sum, refund) => {
     if (refund.status === 'processed') {
       return sum + refund.amount;
     }
     return sum;
   }, 0);
-  
-  return outstandingPrincipal + accruedInterest + totalPenalties - totalRefunds;
+
+  return outstandingPrincipal + accruedInterest + totalPenalties + pendingAmount - totalRefunds;
 };
 
 const formatCurrency = (amount: number): string => {
@@ -191,37 +330,27 @@ const generateFutureEMIs = (loan: LoanLedger): { dueDate: string; amount: number
   const installmentsLeft = calculateInstallmentsLeft(loan);
   if (installmentsLeft <= 0) return [];
 
-  const { principalAmount, interestRate, frequency } = loan.loanDetails;
-  const paidPrincipal = loan.payments.reduce((sum, payment) => sum + payment.principalPaid, 0);
-  const outstandingPrincipal = Math.max(0, principalAmount - paidPrincipal);
-  
-  // Simple EMI calculation formula: P * r * (1+r)^n / ((1+r)^n - 1)
-  // where P = principal, r = interest rate per period, n = number of periods
-  const r = (interestRate / 100) / 12; // Monthly interest rate
-  const n = installmentsLeft;
-  
-  // Prevent division by zero and negative values
-  const emi = r > 0 && n > 0
-    ? outstandingPrincipal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1)
-    : outstandingPrincipal / n; // Fallback to simple division if rates are problematic
-  
-  // Find the latest due date or use today
-  let latestDueDate = new Date();
+  const { principalAmount, interestRate, frequency, term } = loan.loanDetails;
 
+  const r = (interestRate / 100) / (frequency === 'monthly' ? 12 : frequency === 'quarterly' ? 4 : 52);
+  const n = term;  
+
+  const emi = r > 0 && n > 0
+    ? principalAmount * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1)
+    : principalAmount / n;
+
+  let latestDueDate = new Date();
   if (loan.payments.length > 0) {
     const sortedPayments = [...loan.payments].sort((a, b) => 
       new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
     );
-    
-    if (sortedPayments.length > 0) {
-      const latestDueDateStr = sortedPayments[0].dueDate;
-      const parsedDate = safeParseDate(latestDueDateStr);
-      latestDueDate = parsedDate;
-    }
+    latestDueDate = safeParseDate(sortedPayments[0].dueDate);
+  } else {
+    latestDueDate = safeParseDate(loan.loanDetails.startDate);
   }
-  
+
   const interval = frequency === 'monthly' ? 30 : frequency === 'quarterly' ? 90 : 7;
-  
+
   return Array.from({ length: installmentsLeft }, (_, i) => {
     const dueDate = addDays(latestDueDate, (i + 1) * interval);
     return {
@@ -232,7 +361,7 @@ const generateFutureEMIs = (loan: LoanLedger): { dueDate: string; amount: number
 };
 
 // Main component
-const DuesModule: React.FC = () => {
+const App: FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customerDues, setCustomerDues] = useState<CustomerDues | null>(null);
@@ -241,8 +370,8 @@ const DuesModule: React.FC = () => {
   const [expandedSection, setExpandedSection] = useState<Record<string, boolean>>({});
   const [prepaymentSimulation, setPrepaymentSimulation] = useState<PrepaymentSimulation | null>(null);
   const [auditTrail, setAuditTrail] = useState<AuditEntry[]>([]);
+  const [prepaymentAmount, setPrepaymentAmount] = useState<number | string>('');
 
-  // Handle search
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) {
       setError('Please enter a customer name or ID');
@@ -251,54 +380,44 @@ const DuesModule: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
-    
-    try {
-      // Log the search attempt for audit trail
-      setAuditTrail(prev => [
-        ...prev,
-        { action: `Searched for customer: ${searchQuery}`, timestamp: new Date().toISOString() }
-      ]);
-      
-      const response = await axios.get(`/api/customers/${encodeURIComponent(searchQuery)}/dues`);
-      
-      if (response.data) {
-        setCustomerDues(response.data);
-        
-        // Log successful fetch for audit trail
+    setCustomerDues(null);
+
+    setAuditTrail(prev => [
+      ...prev,
+      { action: `Searched for customer: ${searchQuery}`, timestamp: new Date().toISOString() }
+    ]);
+
+    setTimeout(() => {
+      if (searchQuery.toLowerCase().includes('error')) {
+        setError('Failed to fetch customer data (mock error).');
         setAuditTrail(prev => [
           ...prev,
-          { action: `Successfully fetched dues for: ${response.data.customer.name}`, timestamp: new Date().toISOString() }
+          { action: `Error searching: Mock error`, timestamp: new Date().toISOString() }
         ]);
       } else {
-        throw new Error('No data received from API');
+        setCustomerDues(mockData);
+        setAuditTrail(prev => [
+          ...prev,
+          { action: `Successfully fetched dues for: ${mockData.customer.name}`, timestamp: new Date().toISOString() }
+        ]);
       }
-    } catch (err) {
-      console.error('Error fetching customer dues:', err);
-      setError('Failed to fetch customer data. Please check the ID/name and try again.');
-      
-      // Log error for audit trail
-      setAuditTrail(prev => [
-        ...prev,
-        { action: `Error searching: ${err instanceof Error ? err.message : 'Unknown error'}`, timestamp: new Date().toISOString() }
-      ]);
-    } finally {
       setIsLoading(false);
-    }
+    }, 1000);
+
   }, [searchQuery]);
 
-  // Handle Enter key press for search
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
   }, [handleSearch]);
 
-  // Toggle expanded loan details
   const toggleLoanDetails = useCallback((loanId: string) => {
-    setExpandedLoanId(prevId => prevId === loanId ? null : loanId);
+    setExpandedLoanId(prevId => (prevId === loanId ? null : loanId));
+    setPrepaymentSimulation(null);
+    setPrepaymentAmount('');
   }, []);
 
-  // Toggle section expansion
   const toggleSection = useCallback((section: string) => {
     setExpandedSection(prev => ({
       ...prev,
@@ -306,39 +425,39 @@ const DuesModule: React.FC = () => {
     }));
   }, []);
 
-  // Calculate prepayment simulation
-  const handlePrepaymentSimulation = useCallback((loanId: string, amount: number) => {
+  const handlePrepaymentSimulation = useCallback((loanId: string) => {
     const loan = customerDues?.loans.find(loan => loan.loanDetails.id === loanId);
-    if (!loan) return;
-    
+    if (!loan || !prepaymentAmount || +prepaymentAmount <= 0) {
+      setPrepaymentSimulation(null);
+      return;
+    };
+
+    const amount = +prepaymentAmount;
+
     setPrepaymentSimulation({
       amount,
       date: new Date().toISOString().split('T')[0]
     });
-    
-    // Log simulation for audit trail
+
     setAuditTrail(prev => [
       ...prev,
       { action: `Simulated prepayment of ${formatCurrency(amount)} on loan ${loanId}`, timestamp: new Date().toISOString() }
     ]);
-  }, [customerDues]);
+  }, [customerDues, prepaymentAmount]);
 
-  // Download repayment history
   const downloadRepaymentHistory = useCallback((loanId: string) => {
     const loan = customerDues?.loans.find(loan => loan.loanDetails.id === loanId);
     if (!loan) return;
-    
-    // This would typically generate a CSV or PDF
-    alert("Downloading repayment history... (functionality to be implemented)");
-    
-    // Log download for audit trail
+
+    console.log("Downloading repayment history for loan: ", loanId, loan.payments);
+    alert("Downloading repayment history... (Check console for data)");
+
     setAuditTrail(prev => [
       ...prev,
       { action: `Downloaded repayment history for loan ${loanId}`, timestamp: new Date().toISOString() }
     ]);
   }, [customerDues]);
 
-  // Reset the form
   const handleReset = useCallback(() => {
     setSearchQuery('');
     setCustomerDues(null);
@@ -346,458 +465,545 @@ const DuesModule: React.FC = () => {
     setExpandedLoanId(null);
     setExpandedSection({});
     setPrepaymentSimulation(null);
+    setPrepaymentAmount('');
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Dues Management Module</h1>
-      
-      {/* Customer Lookup Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Customer Lookup</h2>
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Enter customer name or ID..."
-            className="flex-1 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Customer name or ID"
-          />
-          <button
-            onClick={handleSearch}
-            disabled={isLoading}
-            className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition duration-200 flex items-center disabled:opacity-70 disabled:cursor-not-allowed"
-            aria-label="Search for customer"
-          >
-            {isLoading ? 'Searching...' : 'Search'} {!isLoading && <Search className="ml-2 h-4 w-4" />}
-          </button>
-          <button
-            onClick={handleReset}
-            className="bg-gray-200 text-gray-700 px-6 py-3 rounded-md hover:bg-gray-300 transition duration-200"
-            aria-label="Reset search"
-          >
-            Reset
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl">
+              <CreditCard className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold text-white">Dues Management</h1>
+              <p className="text-blue-300">Track and manage customer loan payments</p>
+            </div>
+          </div>
         </div>
 
-        {error && (
-          <div className="bg-red-100 text-red-700 p-4 rounded-md flex items-center mb-4" role="alert">
-            <AlertTriangle className="h-5 w-5 mr-2" />
-            {error}
+        {/* Customer Lookup Section */}
+        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
+            <Search className="w-6 h-6 text-blue-400" />
+            Customer Lookup
+          </h2>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Enter customer name or ID (e.g., 'Rohan' or 'error')"
+              className="flex-1 p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button
+              onClick={handleSearch}
+              disabled={isLoading}
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-8 py-3 rounded-xl hover:shadow-lg hover:shadow-blue-500/50 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+            >
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Searching...
+                </>
+              ) : (
+                <>Search <Search className="ml-2 h-5 w-5" /></>
+              )}
+            </button>
+            <button
+              onClick={handleReset}
+              className="bg-white/10 text-white px-8 py-3 rounded-xl hover:bg-white/20 transition-all font-semibold"
+            >
+              Reset
+            </button>
           </div>
-        )}
-      </div>
 
-      {/* Customer Dues Display */}
-      {customerDues && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">{customerDues.customer.name}</h2>
-              <p className="text-gray-600">Customer ID: {customerDues.customer.code}</p>
-              <p className="text-gray-600">Email: {customerDues.customer.email}</p>
+          {error && (
+            <div className="bg-red-500/20 text-red-300 p-4 rounded-xl flex items-center mt-4 border border-red-500/50">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              {error}
             </div>
-            <div className="bg-blue-100 p-3 rounded-md mt-3 md:mt-0">
-              <p className="text-blue-800 font-semibold">Total Active Loans: {customerDues.loans.filter(loan => loan.loanDetails.status === 'active').length}</p>
-            </div>
-          </div>
+          )}
+        </div>
 
-          {/* Loans List */}
-          {customerDues.loans.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No loan records found for this customer.</p>
+        {/* Customer Dues Display */}
+        {customerDues && (
+          <div className="space-y-6">
+            {/* Customer Info Card */}
+            <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-3xl font-bold text-white mb-2">{customerDues.customer.name}</h2>
+                  <div className="space-y-1">
+                    <p className="text-blue-300 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Customer ID: {customerDues.customer.code}
+                    </p>
+                    <p className="text-blue-300 flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      Email: {customerDues.customer.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-lg rounded-xl p-4 border border-blue-500/30">
+                  <p className="text-blue-300 text-sm mb-1">Total Active Loans</p>
+                  <p className="text-4xl font-bold text-white">
+                    {customerDues.loans.filter(loan => loan.loanDetails.status === 'active').length}
+                  </p>
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {customerDues.loans.map((loan) => {
-                const isExpanded = expandedLoanId === loan.loanDetails.id;
-                const installmentsLeft = calculateInstallmentsLeft(loan);
-                const daysRemaining = calculateDaysRemaining(installmentsLeft, loan.loanDetails.frequency);
-                const maturityDate = addDays(new Date(), daysRemaining);
-                const netDues = calculateNetDues(loan);
-                const totalPenalties = calculateTotalPenalties(loan);
-                const accruedInterest = calculateAccruedInterest(loan);
-                const { principalAmount } = loan.loanDetails;
-                const paidPrincipal = loan.payments.reduce((sum, payment) => sum + payment.principalPaid, 0);
-                const outstandingPrincipal = Math.max(0, principalAmount - paidPrincipal);
 
-                return (
-                  <div key={loan.loanDetails.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                    {/* Loan Summary Header */}
-                    <div 
-                      className={`p-4 flex justify-between items-center cursor-pointer ${isExpanded ? 'bg-blue-50' : 'bg-white'}`}
-                      onClick={() => toggleLoanDetails(loan.loanDetails.id)}
-                      aria-expanded={isExpanded}
-                      aria-controls={`loan-details-${loan.loanDetails.id}`}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center">
-                          <h3 className="text-lg font-semibold text-gray-800">
-                            Loan #{loan.loanDetails.id.substring(0, 8)}
-                          </h3>
-                          <span className={`ml-3 px-2 py-1 text-xs rounded-full ${
-                            loan.loanDetails.status === 'active' 
-                              ? 'bg-green-100 text-green-800' 
-                              : loan.loanDetails.status === 'closed'
-                              ? 'bg-gray-100 text-gray-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {loan.loanDetails.status.toUpperCase()}
-                          </span>
+            {/* Loans List */}
+            {customerDues.loans.length === 0 ? (
+              <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-12 border border-white/10 text-center">
+                <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-400 text-lg">No loan records found for this customer.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {customerDues.loans.map((loan) => {
+                  const isExpanded = expandedLoanId === loan.loanDetails.id;
+                  const installmentsLeft = calculateInstallmentsLeft(loan);
+                  const daysRemaining = calculateDaysRemaining(installmentsLeft, loan.loanDetails.frequency);
+                  const maturityDate = addDays(new Date(), daysRemaining);
+                  const netDues = calculateNetDues(loan);
+                  const totalPenalties = calculateTotalPenalties(loan);
+                  const accruedInterest = calculateAccruedInterest(loan);
+                  const { principalAmount } = loan.loanDetails;
+                  const paidPrincipal = loan.payments.reduce((sum, payment) => sum + payment.principalPaid, 0);
+                  const outstandingPrincipal = Math.max(0, principalAmount - paidPrincipal);
+
+                  return (
+                    <div key={loan.loanDetails.id} className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden transition-all duration-300">
+                      {/* Loan Summary Header */}
+                      <div 
+                        className={`p-6 flex justify-between items-center cursor-pointer transition-all ${isExpanded ? 'bg-blue-500/10 border-b border-blue-500/30' : 'hover:bg-white/5'}`}
+                        onClick={() => toggleLoanDetails(loan.loanDetails.id)}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <CreditCard className="w-6 h-6 text-blue-400" />
+                            <h3 className="text-xl font-bold text-white">
+                              Loan #{loan.loanDetails.id.substring(0, 8).toUpperCase()}
+                            </h3>
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                              loan.loanDetails.status === 'active' 
+                                ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
+                                : loan.loanDetails.status === 'closed'
+                                ? 'bg-gray-500/20 text-gray-400 border border-gray-500/50'
+                                : 'bg-red-500/20 text-red-400 border border-red-500/50'
+                            }`}>
+                              {loan.loanDetails.status.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-blue-300">
+                            {formatCurrency(loan.loanDetails.principalAmount)} at {loan.loanDetails.interestRate}% • {loan.loanDetails.frequency.charAt(0).toUpperCase() + loan.loanDetails.frequency.slice(1)} payments
+                          </p>
                         </div>
-                        <p className="text-gray-600 mt-1">
-                          {formatCurrency(loan.loanDetails.principalAmount)} at {loan.loanDetails.interestRate}% ({loan.loanDetails.frequency})
-                        </p>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-gray-400 text-sm mb-1">Net Dues</p>
+                            <p className={`text-2xl font-bold ${loan.loanDetails.status === 'active' ? 'text-cyan-400' : 'text-gray-500'}`}>
+                              {loan.loanDetails.status === 'active' ? formatCurrency(netDues) : 'N/A'}
+                            </p>
+                          </div>
+                          <div className="bg-white/10 rounded-full p-2">
+                            {isExpanded ? <ChevronUp size={24} className="text-white" /> : <ChevronDown size={24} className="text-white" />}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center">
-                        <div className="text-right mr-4">
-                          <p className="text-gray-800 font-medium">Net Dues</p>
-                          <p className="text-lg font-bold text-blue-600">{formatCurrency(netDues)}</p>
-                        </div>
-                        <div className="bg-gray-200 rounded-full p-1">
-                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Expanded Loan Details */}
-                    {isExpanded && (
-                      <div id={`loan-details-${loan.loanDetails.id}`} className="p-4 border-t border-gray-200">
-                        {/* Loan Overview */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                          <div className="bg-gray-50 p-4 rounded-md">
-                            <h4 className="text-gray-500 font-medium mb-2">Principal & Interest</h4>
-                            <p className="flex justify-between">
-                              <span>Original Principal:</span>
-                              <span className="font-medium">{formatCurrency(loan.loanDetails.principalAmount)}</span>
-                            </p>
-                            <p className="flex justify-between mt-1">
-                              <span>Outstanding Principal:</span>
-                              <span className="font-medium">{formatCurrency(outstandingPrincipal)}</span>
-                            </p>
-                            <p className="flex justify-between mt-1">
-                              <span>Accrued Interest:</span>
-                              <span className="font-medium">{formatCurrency(accruedInterest)}</span>
-                            </p>
-                            <p className="flex justify-between mt-1">
-                              <span>Interest Rate:</span>
-                              <span className="font-medium">{loan.loanDetails.interestRate}%</span>
-                            </p>
+                      {/* Expanded Loan Details */}
+                      {isExpanded && (
+                        <div className="p-6">
+                          {/* Stats Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-lg rounded-xl p-5 border border-purple-500/30">
+                              <div className="flex items-center gap-3 mb-3">
+                                <DollarSign className="w-6 h-6 text-purple-400" />
+                                <h4 className="text-white font-semibold">Principal & Interest</h4>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-300">Original Principal:</span>
+                                  <span className="text-white font-semibold">{formatCurrency(loan.loanDetails.principalAmount)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-300">Outstanding:</span>
+                                  <span className="text-white font-semibold">{formatCurrency(outstandingPrincipal)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-300">Accrued Interest:</span>
+                                  <span className="text-white font-semibold">{formatCurrency(accruedInterest)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-300">Interest Rate:</span>
+                                  <span className="text-white font-semibold">{loan.loanDetails.interestRate}%</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-lg rounded-xl p-5 border border-blue-500/30">
+                              <div className="flex items-center gap-3 mb-3">
+                                <Clock className="w-6 h-6 text-blue-400" />
+                                <h4 className="text-white font-semibold">Time Remaining</h4>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Activity className="w-4 h-4 text-blue-300" />
+                                  <span className="text-white font-semibold">{installmentsLeft} installments left</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Calendar className="w-4 h-4 text-blue-300" />
+                                  <span className="text-white font-semibold">~{Math.round(daysRemaining / 30)} months</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Target className="w-4 h-4 text-blue-300" />
+                                  <span className="text-gray-300">Maturity: {format(maturityDate, 'MMM dd, yyyy')}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-orange-500/20 to-red-500/20 backdrop-blur-lg rounded-xl p-5 border border-orange-500/30">
+                              <div className="flex items-center gap-3 mb-3">
+                                <AlertTriangle className="w-6 h-6 text-orange-400" />
+                                <h4 className="text-white font-semibold">Penalties & Charges</h4>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-300">Outstanding Penalties:</span>
+                                  <span className="text-white font-semibold">{formatCurrency(totalPenalties)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-300">Prepayment Penalty:</span>
+                                  <span className="text-white font-semibold">{formatCurrency(calculatePrepaymentPenalty(loan))}</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="bg-gray-50 p-4 rounded-md">
-                            <h4 className="text-gray-500 font-medium mb-2">Time Remaining</h4>
-                            <div className="flex items-center mb-2">
-                              <Clock className="h-5 w-5 text-gray-400 mr-2" />
-                              <p className="font-medium">
-                                {installmentsLeft} installments left
-                              </p>
+                          {/* Net Dues Breakdown */}
+                          {loan.loanDetails.status === 'active' && (
+                            <div className="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 backdrop-blur-lg rounded-xl p-5 border border-cyan-500/30 mb-6">
+                              <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                                <TrendingUp className="w-5 h-5 text-cyan-400" />
+                                Net Dues Breakdown
+                              </h4>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div>
+                                  <p className="text-gray-300 text-sm">Outstanding Principal</p>
+                                  <p className="text-white font-bold text-lg">{formatCurrency(outstandingPrincipal)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-300 text-sm">Accrued Interest</p>
+                                  <p className="text-white font-bold text-lg">{formatCurrency(accruedInterest)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-300 text-sm">Penalties</p>
+                                  <p className="text-white font-bold text-lg">{formatCurrency(totalPenalties)}</p>
+                                </div>
+                                <div className="bg-cyan-500/30 rounded-lg p-3">
+                                  <p className="text-cyan-200 text-sm font-semibold">Total Net Dues</p>
+                                  <p className="text-white font-bold text-xl">{formatCurrency(netDues)}</p>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center mb-2">
-                              <Calendar className="h-5 w-5 text-gray-400 mr-2" />
-                              <p className="font-medium">
-                                Approx. {Math.round(daysRemaining / 30)} months remaining
-                              </p>
-                            </div>
-                            <div className="flex items-center">
-                              <Calendar className="h-5 w-5 text-gray-400 mr-2" />
-                              <p className="font-medium">
-                                Est. Maturity: {format(maturityDate, 'dd MMM, yyyy')}
-                              </p>
-                            </div>
-                          </div>
+                          )}
 
-                          <div className="bg-gray-50 p-4 rounded-md">
-                            <h4 className="text-gray-500 font-medium mb-2">Penalties & Dues</h4>
-                            <p className="flex justify-between">
-                              <span>Late Penalties:</span>
-                              <span className="font-medium text-red-600">{formatCurrency(totalPenalties)}</span>
-                            </p>
-                            <p className="flex justify-between mt-1">
-                              <span>Prepayment Penalty:</span>
-                              <span className="font-medium">{formatCurrency(calculatePrepaymentPenalty(loan))}</span>
-                            </p>
-                            <p className="flex justify-between mt-1 font-semibold text-lg">
-                              <span>Total Due:</span>
-                              <span className="text-blue-600">{formatCurrency(netDues)}</span>
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Repayment History Timeline */}
-                        <div className="mb-6">
-                          <div className="flex justify-between items-center mb-4">
-                            <h4 className="text-gray-700 font-semibold text-lg flex items-center">
-                              <Clock className="h-5 w-5 mr-2" /> 
-                              Repayment History
-                            </h4>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                downloadRepaymentHistory(loan.loanDetails.id);
-                              }}
-                              className="flex items-center text-blue-600 hover:text-blue-800"
-                              aria-label="Download repayment history"
+                          {/* Payment History Section */}
+                          <div className="mb-6">
+                            <button
+                              onClick={() => toggleSection(`payments-${loan.loanDetails.id}`)}
+                              className="w-full bg-white/5 hover:bg-white/10 transition-all rounded-xl p-4 flex justify-between items-center border border-white/10"
                             >
-                              <Download size={16} className="mr-1" /> Download History
+                              <h4 className="text-white font-semibold flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-blue-400" />
+                                Payment History ({loan.payments.length})
+                              </h4>
+                              {expandedSection[`payments-${loan.loanDetails.id}`] ? 
+                                <ChevronUp className="text-white" /> : 
+                                <ChevronDown className="text-white" />
+                              }
                             </button>
-                          </div>
-
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full border-collapse">
-                              <thead>
-                                <tr className="bg-gray-100">
-                                  <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                  <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
-                                  <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                  <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Principal</th>
-                                  <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interest</th>
-                                  <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                  <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penalty</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {loan.payments.length === 0 ? (
-                                  <tr>
-                                    <td colSpan={7} className="px-4 py-3 text-center text-gray-500">No payment records found</td>
-                                  </tr>
-                                ) : (
-                                  loan.payments
-                                    .sort((a, b) => safeParseDate(a.dueDate).getTime() - safeParseDate(b.dueDate).getTime())
-                                    .map((payment) => (
-                                      <tr 
-                                        key={payment.id} 
-                                        className={`border-t border-gray-200 ${
-                                          payment.status === 'late' ? 'bg-red-50' : 
-                                          payment.status === 'waived' ? 'bg-yellow-50' : 
-                                          payment.status === 'pending' ? 'bg-gray-50' : 'bg-white'
-                                        }`}
-                                      >
-                                        <td className="px-4 py-3">{format(safeParseDate(payment.dueDate), 'dd MMM, yyyy')}</td>
-                                        <td className="px-4 py-3">
-                                          {payment.paidDate 
-                                            ? format(safeParseDate(payment.paidDate), 'dd MMM, yyyy')
-                                            : '-'}
-                                        </td>
-                                        <td className="px-4 py-3 font-medium">{formatCurrency(payment.amount)}</td>
-                                        <td className="px-4 py-3">{formatCurrency(payment.principalPaid)}</td>
-                                        <td className="px-4 py-3">{formatCurrency(payment.interestPaid)}</td>
-                                        <td className="px-4 py-3">
-                                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                            payment.status === 'on-time' ? 'bg-green-100 text-green-800' : 
-                                            payment.status === 'late' ? 'bg-red-100 text-red-800' : 
-                                            payment.status === 'waived' ? 'bg-yellow-100 text-yellow-800' :
-                                            'bg-gray-100 text-gray-800'
-                                          }`}>
-                                            {payment.status === 'on-time' && <CheckCircle size={12} className="mr-1" />}
-                                            {payment.status === 'late' && <XCircle size={12} className="mr-1" />}
-                                            {payment.status === 'waived' && <Info size={12} className="mr-1" />}
-                                            {payment.status === 'pending' && <Clock size={12} className="mr-1" />}
-                                            {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                          {payment.penaltyAmount > 0 ? formatCurrency(payment.penaltyAmount) : '-'}
-                                        </td>
+                            
+                            {expandedSection[`payments-${loan.loanDetails.id}`] && (
+                              <div className="mt-4 bg-white/5 rounded-xl p-4 border border-white/10">
+                                <div className="flex justify-end mb-3">
+                                  <button
+                                    onClick={() => downloadRepaymentHistory(loan.loanDetails.id)}
+                                    className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-4 py-2 rounded-lg flex items-center gap-2 transition-all border border-blue-500/30"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                    Download History
+                                  </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b border-white/10">
+                                        <th className="text-left p-3 text-gray-300 font-semibold">Due Date</th>
+                                        <th className="text-left p-3 text-gray-300 font-semibold">Paid Date</th>
+                                        <th className="text-right p-3 text-gray-300 font-semibold">Amount</th>
+                                        <th className="text-right p-3 text-gray-300 font-semibold">Principal</th>
+                                        <th className="text-right p-3 text-gray-300 font-semibold">Interest</th>
+                                        <th className="text-right p-3 text-gray-300 font-semibold">Penalty</th>
+                                        <th className="text-center p-3 text-gray-300 font-semibold">Status</th>
                                       </tr>
-                                    ))
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-
-                        {/* Payment Visualization */}
-                        <div className="mb-6">
-                          <h4 className="text-gray-700 font-semibold text-lg mb-4">Payment Trend</h4>
-                          <div className="h-64">
-                            {loan.payments.length > 0 ? (
-                              <ResponsiveContainer width="100%" height="100%">
-                                <LineChart
-                                  data={loan.payments.map(payment => ({
-                                    date: format(safeParseDate(payment.dueDate), 'MMM yyyy'),
-                                    amount: payment.amount,
-                                    principal: payment.principalPaid,
-                                    interest: payment.interestPaid,
-                                    penalty: payment.penaltyAmount
-                                  }))}
-                                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                                >
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="date" />
-                                  <YAxis />
-                                  <Tooltip />
-                                  <Legend />
-                                  <Line type="monotone" dataKey="principal" stroke="#3b82f6" strokeWidth={2} activeDot={{ r: 8 }} />
-                                  <Line type="monotone" dataKey="interest" stroke="#10b981" strokeWidth={2} />
-                                  <Line type="monotone" dataKey="penalty" stroke="#ef4444" strokeWidth={2} />
-                                </LineChart>
-                              </ResponsiveContainer>
-                            ) : (
-                              <div className="flex items-center justify-center h-full bg-gray-50 rounded-md">
-                                <p className="text-gray-500">No payment data available for visualization</p>
+                                    </thead>
+                                    <tbody>
+                                      {loan.payments.map((payment) => (
+                                        <tr key={payment.id} className="border-b border-white/5 hover:bg-white/5 transition-all">
+                                          <td className="p-3 text-white">{format(safeParseDate(payment.dueDate), 'MMM dd, yyyy')}</td>
+                                          <td className="p-3 text-white">
+                                            {payment.paidDate ? format(safeParseDate(payment.paidDate), 'MMM dd, yyyy') : '-'}
+                                          </td>
+                                          <td className="p-3 text-right text-white font-semibold">{formatCurrency(payment.amount)}</td>
+                                          <td className="p-3 text-right text-gray-300">{formatCurrency(payment.principalPaid)}</td>
+                                          <td className="p-3 text-right text-gray-300">{formatCurrency(payment.interestPaid)}</td>
+                                          <td className="p-3 text-right text-orange-300">{formatCurrency(payment.penaltyAmount)}</td>
+                                          <td className="p-3 text-center">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                              payment.status === 'on-time' 
+                                                ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
+                                                : payment.status === 'late'
+                                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50'
+                                                : payment.status === 'pending'
+                                                ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                                                : 'bg-gray-500/20 text-gray-400 border border-gray-500/50'
+                                            }`}>
+                                              {payment.status}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
                             )}
                           </div>
-                        </div>
 
-                        {/* Future EMIs & Prepayment */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="border border-gray-200 rounded-md p-4">
-                            <h4 className="text-gray-700 font-semibold text-lg mb-4">Upcoming Payments</h4>
-                            {installmentsLeft > 0 ? (
-                              <div className="space-y-3">
-                                {generateFutureEMIs(loan).slice(0, 3).map((emi, index) => (
-                                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
-                                    <div>
-                                      <p className="text-gray-800 font-medium">{format(safeParseDate(emi.dueDate), 'dd MMM, yyyy')}</p>
-                                      <p className="text-xs text-gray-500">EMI #{loan.loanDetails.term - installmentsLeft + index + 1}</p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-lg font-semibold text-blue-600">{formatCurrency(emi.amount)}</p>
-                                    </div>
-                                  </div>
-                                ))}
-                                {installmentsLeft > 3 && (
-                                  <div className="text-center pt-2">
-                                    <button 
-                                      onClick={() => toggleSection('futureEMIs')}
-                                      className="text-blue-600 hover:text-blue-800 flex items-center mx-auto"
-                                    >
-                                      View all {installmentsLeft} installments 
-                                      {expandedSection['futureEMIs'] ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />}
-                                    </button>
-                                  </div>
-                                )}
-                                
-                                {expandedSection['futureEMIs'] && (
-                                  <div className="mt-4 max-h-64 overflow-y-auto">
-                                    <table className="min-w-full">
+                          {/* Future EMIs Section */}
+                          {loan.loanDetails.status === 'active' && (
+                            <div className="mb-6">
+                              <button
+                                onClick={() => toggleSection(`future-${loan.loanDetails.id}`)}
+                                className="w-full bg-white/5 hover:bg-white/10 transition-all rounded-xl p-4 flex justify-between items-center border border-white/10"
+                              >
+                                <h4 className="text-white font-semibold flex items-center gap-2">
+                                  <Calendar className="w-5 h-5 text-blue-400" />
+                                  Future EMI Schedule ({installmentsLeft} remaining)
+                                </h4>
+                                {expandedSection[`future-${loan.loanDetails.id}`] ? 
+                                  <ChevronUp className="text-white" /> : 
+                                  <ChevronDown className="text-white" />
+                                }
+                              </button>
+                              
+                              {expandedSection[`future-${loan.loanDetails.id}`] && (
+                                <div className="mt-4 bg-white/5 rounded-xl p-4 border border-white/10">
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
                                       <thead>
-                                        <tr className="bg-gray-100">
-                                          <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                          <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EMI #</th>
-                                          <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <tr className="border-b border-white/10">
+                                          <th className="text-left p-3 text-gray-300 font-semibold">Due Date</th>
+                                          <th className="text-right p-3 text-gray-300 font-semibold">EMI Amount</th>
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {generateFutureEMIs(loan).map((emi, index) => (
-                                          <tr key={index} className="border-t border-gray-200">
-                                            <td className="px-4 py-2">{format(safeParseDate(emi.dueDate), 'dd MMM, yyyy')}</td>
-                                            <td className="px-4 py-2">#{loan.loanDetails.term - installmentsLeft + index + 1}</td>
-                                            <td className="px-4 py-2 font-medium">{formatCurrency(emi.amount)}</td>
+                                        {generateFutureEMIs(loan).map((emi, idx) => (
+                                          <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-all">
+                                            <td className="p-3 text-white">{format(safeParseDate(emi.dueDate), 'MMM dd, yyyy')}</td>
+                                            <td className="p-3 text-right text-white font-semibold">{formatCurrency(emi.amount)}</td>
                                           </tr>
                                         ))}
                                       </tbody>
                                     </table>
                                   </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="text-center py-6">
-                                <p className="text-gray-500">No upcoming payments</p>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="border border-gray-200 rounded-md p-4">
-                            <h4 className="text-gray-700 font-semibold text-lg mb-4">Prepayment Options</h4>
-                            
-                            {loan.loanDetails.status === 'active' ? (
-                              <>
-                                <div className="flex items-center p-3 bg-blue-50 rounded-md mb-4">
-                                  <Info className="text-blue-500 h-5 w-5 mr-3" />
-                                  <p className="text-blue-700 text-sm">Simulate a prepayment to see how it affects your loan term and interest</p>
                                 </div>
-                                
-                                <div className="flex flex-col space-y-4">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prepayment Amount</label>
-                                    <div className="flex items-center">
-                                      <DollarSign className="h-5 w-5 text-gray-400 absolute ml-3" />
-                                      <input 
-                                        type="number"
-                                        placeholder="Enter amount"
-                                        className="pl-10 p-3 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        min={0}
-                                        max={outstandingPrincipal}
-                                      />
-                                    </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Prepayments Section */}
+                          {loan.prepayments.length > 0 && (
+                            <div className="mb-6">
+                              <button
+                                onClick={() => toggleSection(`prepayments-${loan.loanDetails.id}`)}
+                                className="w-full bg-white/5 hover:bg-white/10 transition-all rounded-xl p-4 flex justify-between items-center border border-white/10"
+                              >
+                                <h4 className="text-white font-semibold flex items-center gap-2">
+                                  <CheckCircle className="w-5 h-5 text-green-400" />
+                                  Prepayments ({loan.prepayments.length})
+                                </h4>
+                                {expandedSection[`prepayments-${loan.loanDetails.id}`] ? 
+                                  <ChevronUp className="text-white" /> : 
+                                  <ChevronDown className="text-white" />
+                                }
+                              </button>
+                              
+                              {expandedSection[`prepayments-${loan.loanDetails.id}`] && (
+                                <div className="mt-4 bg-white/5 rounded-xl p-4 border border-white/10">
+                                  <div className="space-y-3">
+                                    {loan.prepayments.map((prepayment) => (
+                                      <div key={prepayment.id} className="flex justify-between items-center bg-green-500/10 p-3 rounded-lg border border-green-500/30">
+                                        <div>
+                                          <p className="text-white font-semibold">{formatCurrency(prepayment.amount)}</p>
+                                          <p className="text-gray-300 text-sm">{format(safeParseDate(prepayment.date), 'MMM dd, yyyy')}</p>
+                                        </div>
+                                        <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-semibold border border-green-500/50">
+                                          {prepayment.type}
+                                        </span>
+                                      </div>
+                                    ))}
                                   </div>
-                                  
-                                  <button 
-                                    onClick={() => handlePrepaymentSimulation(loan.loanDetails.id, 10000)}
-                                    className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 flex items-center justify-center"
-                                  >
-                                    Simulate Prepayment <ArrowRight className="ml-2 h-4 w-4" />
-                                  </button>
-                                  
-                                  {prepaymentSimulation && (
-                                    <div className="mt-4 p-4 bg-green-50 rounded-md">
-                                      <h5 className="font-medium text-green-800 mb-2">Prepayment Simulation Results</h5>
-                                      <p className="text-green-700 mb-1">New Term: 18 months (reduced by 6 months)</p>
-                                      <p className="text-green-700 mb-1">Interest Saved: ₹24,500</p>
-                                      <p className="text-green-700">New Monthly EMI: ₹12,340</p>
-                                    </div>
-                                  )}
                                 </div>
-                              </>
-                            ) : (
-                              <div className="text-center py-6">
-                                <p className="text-gray-500">Prepayment not available for {loan.loanDetails.status} loans</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                              )}
+                            </div>
+                          )}
 
-      {/* Audit Trail (Visible only for admin roles) */}
-      {auditTrail.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div 
-            className="flex justify-between items-center cursor-pointer"
-            onClick={() => toggleSection('auditTrail')}
-          >
-            <h2 className="text-xl font-semibold text-gray-700">Audit Trail</h2>
-            <div className="bg-gray-200 rounded-full p-1">
-              {expandedSection['auditTrail'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-            </div>
+                          {/* Refunds Section */}
+                          {loan.refunds.length > 0 && (
+                            <div className="mb-6">
+                              <button
+                                onClick={() => toggleSection(`refunds-${loan.loanDetails.id}`)}
+                                className="w-full bg-white/5 hover:bg-white/10 transition-all rounded-xl p-4 flex justify-between items-center border border-white/10"
+                              >
+                                <h4 className="text-white font-semibold flex items-center gap-2">
+                                  <Info className="w-5 h-5 text-blue-400" />
+                                  Refunds ({loan.refunds.length})
+                                </h4>
+                                {expandedSection[`refunds-${loan.loanDetails.id}`] ? 
+                                  <ChevronUp className="text-white" /> : 
+                                  <ChevronDown className="text-white" />
+                                }
+                              </button>
+                              
+                              {expandedSection[`refunds-${loan.loanDetails.id}`] && (
+                                <div className="mt-4 bg-white/5 rounded-xl p-4 border border-white/10">
+                                  <div className="space-y-3">
+                                    {loan.refunds.map((refund) => (
+                                      <div key={refund.id} className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/30">
+                                        <div className="flex justify-between items-start mb-2">
+                                          <div>
+                                            <p className="text-white font-semibold">{formatCurrency(refund.amount)}</p>
+                                            <p className="text-gray-300 text-sm">{format(safeParseDate(refund.date), 'MMM dd, yyyy')}</p>
+                                          </div>
+                                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                            refund.status === 'processed' 
+                                              ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
+                                              : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                                          }`}>
+                                            {refund.status}
+                                          </span>
+                                        </div>
+                                        <p className="text-gray-300 text-sm">{refund.reason}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Prepayment Simulation */}
+                          {loan.loanDetails.status === 'active' && (
+                            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-lg rounded-xl p-5 border border-purple-500/30">
+                              <h4 className="text-white font-semibold mb-4 flex items-center gap-2">
+                                <Activity className="w-5 h-5 text-purple-400" />
+                                Prepayment Simulation
+                              </h4>
+                              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                                <input
+                                  type="number"
+                                  value={prepaymentAmount}
+                                  onChange={(e) => setPrepaymentAmount(e.target.value)}
+                                  placeholder="Enter prepayment amount"
+                                  className="flex-1 p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                />
+                                <button
+                                  onClick={() => handlePrepaymentSimulation(loan.loanDetails.id)}
+                                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:shadow-purple-500/50 transition-all font-semibold"
+                                >
+                                  Simulate
+                                </button>
+                              </div>
+                              
+                              {prepaymentSimulation && (
+                                <div className="bg-white/10 rounded-lg p-4 space-y-2">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-300">Prepayment Amount:</span>
+                                    <span className="text-white font-semibold">{formatCurrency(prepaymentSimulation.amount)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-300">Prepayment Penalty (2%):</span>
+                                    <span className="text-orange-300 font-semibold">{formatCurrency(calculatePrepaymentPenalty(loan))}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-300">New Outstanding Principal:</span>
+                                    <span className="text-white font-semibold">
+                                      {formatCurrency(Math.max(0, outstandingPrincipal - prepaymentSimulation.amount))}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-green-300 mt-3">
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span>This would reduce your principal by {formatCurrency(Math.min(prepaymentSimulation.amount, outstandingPrincipal))}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Audit Trail */}
+            {auditTrail.length > 0 && (
+              <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
+                <button
+                  onClick={() => toggleSection('audit')}
+                  className="w-full flex justify-between items-center"
+                >
+                  <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <FileText className="w-6 h-6 text-blue-400" />
+                    Audit Trail ({auditTrail.length})
+                  </h3>
+                  {expandedSection['audit'] ? 
+                    <ChevronUp className="text-white" /> : 
+                    <ChevronDown className="text-white" />
+                  }
+                </button>
+                
+                {expandedSection['audit'] && (
+                  <div className="mt-4 space-y-2 max-h-96 overflow-y-auto">
+                    {auditTrail.slice().reverse().map((entry, idx) => (
+                      <div key={idx} className="bg-white/5 p-3 rounded-lg border border-white/10">
+                        <p className="text-white text-sm">{entry.action}</p>
+                        <p className="text-gray-400 text-xs mt-1">
+                          {format(safeParseDate(entry.timestamp), 'MMM dd, yyyy HH:mm:ss')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          
-          {expandedSection['auditTrail'] && (
-            <div className="mt-4 max-h-64 overflow-y-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                    <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {auditTrail.map((entry, index) => (
-                    <tr key={index} className="border-t border-gray-200">
-                      <td className="px-4 py-2 text-sm">{format(safeParseDate(entry.timestamp), 'dd MMM, yyyy HH:mm:ss')}</td>
-                      <td className="px-4 py-2">{entry.action}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
 
-export default DuesModule;
+export default App;

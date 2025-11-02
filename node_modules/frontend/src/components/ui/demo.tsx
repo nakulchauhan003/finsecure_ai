@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react"
-import { useTheme } from "next-themes"
 import { Waves } from "./waves-background.tsx"
 
 function WavesDemo() {
-  const { theme } = useTheme()
   const [reduced, setReduced] = useState(false)
 
   useEffect(() => {
@@ -19,9 +17,9 @@ function WavesDemo() {
   if (reduced) return null
 
   return (
-    <div className="fixed inset-0 -z-10 w-full h-full pointer-events-none">
+    <div className="fixed inset-0 -z-10 w-full h-full pointer-events-none bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <Waves
-          lineColor={theme === "dark" ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.25)"}
+          lineColor="rgba(168, 85, 247, 0.3)"
           backgroundColor="transparent"
           waveSpeedX={0.012}
           waveSpeedY={0.006}

@@ -1,93 +1,81 @@
-.main-container {
-    padding-top: 100px;
-    display: flex;
-    height: 100vh;
-    padding-left: 2rem;
-    padding-right: 2rem;
-    box-sizing: border-box;
-    gap: 2rem;
+/* Base styles and animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.About-container {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    color: rgb(82, 81, 81);
-    font-size: 4rem;
-    flex-shrink: 0;
-    align-self: center;
-    letter-spacing: 5px;
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-.wrapper {
-    display: flex;
-    justify-content: space-between;
-    gap: 2rem;
-    flex: 1;
-    flex-wrap: wrap;
+/* Apply animations to sections */
+.relative {
+  animation: fadeIn 0.6s ease-out forwards;
 }
 
-.main-container-first {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    flex: 1;
-    padding: 0.8rem;
-    box-sizing: border-box;
+.backdrop-blur-sm {
+  animation: scaleIn 0.5s ease-out forwards;
 }
 
-.main-container-third {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    padding: 0.8rem 2rem;
-    box-sizing: border-box;
+/* Enhanced hover effects */
+.hover\:border-purple-500\/30:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -10px rgba(139, 92, 246, 0.3);
+  transition: all 0.3s ease;
 }
 
-.explore-button {
-    width: fit-content;
-    background-color: #000;
-    color: #fff;
-    padding: 1rem 1.4rem;
-    font-size: 1.2rem;
-    letter-spacing: 0.4px;
-    border: none;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background-color 0.3s ease;
+/* Responsive image handling */
+img {
+  transition: transform 0.3s ease;
 }
 
-.explore-button:hover {
-    background-color: #333;
+img:hover {
+  transform: scale(1.05);
 }
-.people-section{
-    padding-block:1.4rem;
-    display: flex;
-    gap:1rem;
-}
-.people-section-image{
-    border-radius: 50%;
-    min-width: 60px;
-    width: 60px;
-}
-.people-section-details{
-    display: flex;
-    flex-direction: column;
-    color:#000000;
-}
-@media (max-width: 800px) {
-    .main-container {
-        flex-direction: column;
-        height: auto;
-    }
 
-    .wrapper {
-        flex-direction: column;
-        gap: 1.5rem;
-    }
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
 
-    .About-container {
-        writing-mode: horizontal-tb;
-        transform: none;
-        align-self: flex-start;
-    }
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.7);
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .text-4xl {
+    font-size: 2.5rem;
+  }
+  
+  .py-24 {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+  
+  .gap-8 {
+    gap: 1.5rem;
+  }
 }
