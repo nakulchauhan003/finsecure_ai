@@ -17,9 +17,9 @@ function WavesDemo() {
   if (reduced) return null
 
   return (
-    <div className="fixed inset-0 -z-10 w-full h-full pointer-events-none bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="fixed inset-0 -z-10 w-full h-full pointer-events-none bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950">
         <Waves
-          lineColor="rgba(168, 85, 247, 0.3)"
+          lineColor="rgba(99, 102, 241, 0.4)"
           backgroundColor="transparent"
           waveSpeedX={0.012}
           waveSpeedY={0.006}

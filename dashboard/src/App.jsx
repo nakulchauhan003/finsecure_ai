@@ -48,87 +48,109 @@ function App() {
     <AuthWrapper>
       <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <Header />
-        <div className="flex flex-1">
-          {/* Custom Sidebar for Revenue Leakage System */}
-          <div className="w-64 bg-white/10 backdrop-blur-lg shadow-2xl border-r border-white/20">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">Revenue Analytics</h2>
-              </div>
-              
-              {revenueData.loading && (
-                <div className="mb-4 text-center">
-                  <div className="w-6 h-6 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="text-xs text-purple-300 mt-2">Loading data...</p>
-                </div>
-              )}
-              
-              {revenueData.error && (
-                <div className="mb-4 p-2 bg-red-500/20 border border-red-400/50 rounded text-xs text-red-200">
-                  {revenueData.error}
-                </div>
-              )}
-              
-              <nav className="space-y-2">
-                {navigationItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    disabled={revenueData.loading}
-                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 ${
-                      activeTab === item.id
-                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
-                        : 'text-purple-200 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <span className="mr-3 text-lg">{item.icon}</span>
-                    {item.name}
-                  </button>
-                ))}
-              </nav>
+        <div className="flex flex-1 relative">
+          {/* Hover-to-Reveal Sidebar for Revenue Leakage System */}
+          <div className="group fixed left-0 top-16 bottom-0 z-50 flex transition-all duration-300">
+            {/* Collapsed State - Visible on Hover Trigger */}
+            <div className="w-16 bg-gradient-to-b from-slate-900/95 via-cyan-900/95 to-slate-900/95 backdrop-blur-lg shadow-2xl border-r border-cyan-500/30 flex flex-col items-center py-6 space-y-4">
+              {navigationItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  disabled={revenueData.loading}
+                  title={item.name}
+                  className={`w-12 h-12 flex items-center justify-center rounded-lg transition-all disabled:opacity-50 ${
+                    activeTab === item.id
+                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/50'
+                      : 'text-cyan-300 hover:text-white hover:bg-cyan-500/20'
+                  }`}
+                >
+                  <span className="text-xl">{item.icon}</span>
+                </button>
+              ))}
             </div>
-            
-            {/* Quick Stats */}
-            <div className="px-6 py-4 border-t border-white/20">
-              <h3 className="text-sm font-medium text-purple-300 mb-3">Quick Stats</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-purple-300">MRR</span>
-                  <span className="font-medium text-white">
-                    {revenueData.loading ? '...' : '$485K'}
-                  </span>
+
+            {/* Expanded State - Shows on Hover */}
+            <div className="w-0 group-hover:w-64 overflow-hidden bg-gradient-to-b from-slate-900/98 via-cyan-900/98 to-slate-900/98 backdrop-blur-lg shadow-2xl border-r border-cyan-500/30 transition-all duration-300">
+              <div className="w-64 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">Revenue Analytics</h2>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-purple-300">Leakage</span>
-                  <span className="font-medium text-red-400">
-                    {revenueData.loading ? '...' : '$32.5K'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-purple-300">Churn Rate</span>
-                  <span className="font-medium text-orange-400">
-                    {revenueData.loading ? '...' : '4.2%'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-purple-300">Recovery Potential</span>
-                  <span className="font-medium text-green-400">
-                    {revenueData.loading ? '...' : '$180K'}
-                  </span>
-                </div>
+                
+                {revenueData.loading && (
+                  <div className="mb-4 text-center">
+                    <div className="w-6 h-6 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p className="text-xs text-cyan-300 mt-2">Loading data...</p>
+                  </div>
+                )}
+                
+                {revenueData.error && (
+                  <div className="mb-4 p-2 bg-red-500/20 border border-red-400/50 rounded text-xs text-red-200">
+                    {revenueData.error}
+                  </div>
+                )}
+                
+                <nav className="space-y-2">
+                  {navigationItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      disabled={revenueData.loading}
+                      className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 ${
+                        activeTab === item.id
+                          ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30'
+                          : 'text-cyan-200 hover:text-white hover:bg-cyan-500/20 hover:border-cyan-500/50 border border-transparent'
+                      }`}
+                    >
+                      <span className="mr-3 text-lg">{item.icon}</span>
+                      {item.name}
+                    </button>
+                  ))}
+                </nav>
               </div>
               
-              <button
-                onClick={revenueData.refetch}
-                disabled={revenueData.loading}
-                className="mt-3 w-full text-xs bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 px-2 rounded-lg disabled:opacity-50 transition-all"
-              >
-                {revenueData.loading ? 'Loading...' : 'Refresh Data'}
-              </button>
+              {/* Quick Stats */}
+              <div className="w-64 px-6 py-4 border-t border-cyan-500/30">
+                <h3 className="text-sm font-medium bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent mb-3">Quick Stats</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-cyan-300">MRR</span>
+                    <span className="font-medium text-white">
+                      {revenueData.loading ? '...' : '$485K'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-cyan-300">Leakage</span>
+                    <span className="font-medium text-red-400">
+                      {revenueData.loading ? '...' : '$32.5K'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-cyan-300">Churn Rate</span>
+                    <span className="font-medium text-orange-400">
+                      {revenueData.loading ? '...' : '4.2%'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-cyan-300">Recovery Potential</span>
+                    <span className="font-medium text-green-400">
+                      {revenueData.loading ? '...' : '$180K'}
+                    </span>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={revenueData.refetch}
+                  disabled={revenueData.loading}
+                  className="mt-3 w-full text-xs bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 border border-cyan-500/40 hover:border-cyan-400 text-cyan-100 py-2 px-2 rounded-lg disabled:opacity-50 transition-all shadow-lg shadow-cyan-500/10"
+                >
+                  {revenueData.loading ? 'Loading...' : 'Refresh Data'}
+                </button>
+              </div>
             </div>
           </div>
           
-          <main className="flex-1 p-6 overflow-auto">
+          <main className="flex-1 p-6 overflow-auto ml-16">
             {renderActiveComponent()}
           </main>
         </div>
