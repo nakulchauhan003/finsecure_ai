@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingDown, TrendingUp, RefreshCw, Zap, DollarSign, Award, Shield, Activity, Percent, BarChart3, ArrowRight, CheckCircle, AlertCircle, Sparkles, Clock, Target, Brain, LineChart, Bell } from 'lucide-react';
+import { TrendingDown, TrendingUp, RefreshCw, Zap, DollarSign, Award, Shield, Activity, Percent, BarChart3, ArrowRight, CheckCircle, AlertCircle, Sparkles, Clock, Target, Brain, LineChart, Bell, FileText, X, User } from 'lucide-react';
 
 export default function InterestRateOptimizer() {
   const [stage, setStage] = useState('input'); // input, optimizing, results
+  const [showDetailedExplanation, setShowDetailedExplanation] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     creditScore: 720,
@@ -852,6 +853,191 @@ export default function InterestRateOptimizer() {
                 </div>
               </div>
             </div>
+
+            {/* Detailed Explanation Button */}
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowDetailedExplanation(!showDetailedExplanation)}
+                className="bg-gradient-to-r from-purple-500 via-pink-500 to-yellow-500 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-purple-600 hover:via-pink-600 hover:to-yellow-600 transition-all shadow-lg flex items-center gap-3 hover:scale-105"
+              >
+                <FileText className="w-6 h-6" />
+                {showDetailedExplanation ? 'Hide Detailed Explanation' : 'View Detailed Explanation'}
+              </button>
+            </div>
+
+            {/* Detailed Explanation Section */}
+            {showDetailedExplanation && (
+              <div className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 backdrop-blur-lg rounded-xl border-2 border-purple-400/50 p-8 shadow-2xl animate-fadeIn">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                    <Sparkles className="w-8 h-8 text-purple-400" />
+                    Complete Optimization Breakdown
+                  </h3>
+                  <button
+                    onClick={() => setShowDetailedExplanation(false)}
+                    className="text-purple-300 hover:text-white transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Customer Profile */}
+                  <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                    <h4 className="text-xl font-semibold text-purple-200 mb-4 flex items-center gap-2">
+                      <User className="w-5 h-5" />
+                      Customer Input Data
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Credit Score</p>
+                        <p className="text-2xl font-bold text-white">{formData.creditScore}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Loan Amount</p>
+                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.loanAmount).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Monthly Income</p>
+                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.monthlyIncome).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Existing EMIs</p>
+                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.existingEMIs).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Employment Type</p>
+                        <p className="text-2xl font-bold text-white capitalize">{formData.employmentType}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Customer Tenure</p>
+                        <p className="text-2xl font-bold text-white">{formData.customerTenure} years</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rate Calculation Steps */}
+                  <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                    <h4 className="text-xl font-semibold text-purple-200 mb-4 flex items-center gap-2">
+                      <Brain className="w-5 h-5" />
+                      Real-Time Rate Calculation Process
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 font-bold text-white">1</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Base Market Rate: {optimization.baseMarketRate}%</p>
+                          <p className="text-purple-200 text-sm">Calculated from repo rate ({marketData.repoRate}%) + base margin</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 font-bold text-white">2</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Risk Premium: +{optimization.riskPremium}%</p>
+                          <p className="text-purple-200 text-sm">Based on customer risk score of {optimization.riskScore}%</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 font-bold text-white">3</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Market Adjustments Applied</p>
+                          <p className="text-purple-200 text-sm">Inflation ({marketData.inflation}%), Competitor rates ({marketData.competitorAvgRate}%)</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 font-bold text-white">4</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Loyalty Discount: -{optimization.loyaltyDiscount}%</p>
+                          <p className="text-purple-200 text-sm">{formData.customerTenure} years of relationship</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 font-bold text-white">5</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Investment Bonus: -{optimization.investmentBonus}%</p>
+                          <p className="text-purple-200 text-sm">{formData.hasInvestments ? 'Active investments detected' : 'No active investments'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-gradient-to-br from-yellow-500/20 to-amber-500/20 rounded-lg p-4 border border-yellow-400/50">
+                        <Target className="w-8 h-8 text-yellow-400 flex-shrink-0" />
+                        <div className="flex-grow">
+                          <p className="text-white font-bold mb-1">Final Optimized Rate: {optimization.optimizedRate}%</p>
+                          <p className="text-yellow-200 text-sm">Confidence Level: {optimization.confidence}%</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Market Data */}
+                  <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                    <h4 className="text-xl font-semibold text-purple-200 mb-4 flex items-center gap-2">
+                      <LineChart className="w-5 h-5" />
+                      Live Market Data Used
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Repo Rate</p>
+                        <p className="text-2xl font-bold text-white">{marketData.repoRate}%</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Inflation Rate</p>
+                        <p className="text-2xl font-bold text-white">{marketData.inflation}%</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Competitor Average</p>
+                        <p className="text-2xl font-bold text-white">{marketData.competitorAvgRate}%</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-purple-300 text-sm mb-1">Bank Liquidity</p>
+                        <p className="text-2xl font-bold text-white capitalize">{marketData.bankLiquidity}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Savings Breakdown */}
+                  <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                    <h4 className="text-xl font-semibold text-purple-200 mb-4 flex items-center gap-2">
+                      <Award className="w-5 h-5" />
+                      Customer Savings Analysis
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                        <span className="text-white">Our Optimized Rate</span>
+                        <span className="text-green-400 font-bold text-xl">{optimization.optimizedRate}%</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                        <span className="text-white">Competitor Average Rate</span>
+                        <span className="text-red-400 font-bold text-xl">{optimization.competitorRate}%</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-lg border border-green-400/50">
+                        <span className="text-white font-semibold">Monthly Savings</span>
+                        <span className="text-green-300 font-bold text-xl">₹{optimization.savingsPerMonth}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-500/30 to-emerald-500/30 rounded-lg border border-green-400/50">
+                        <span className="text-white font-semibold">Annual Savings</span>
+                        <span className="text-green-300 font-bold text-2xl">₹{optimization.savingsPerYear}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Model Information */}
+                  <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-6 border border-purple-400/50">
+                    <h4 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-purple-400" />
+                      About Real-Time Optimization
+                    </h4>
+                    <p className="text-purple-200 leading-relaxed mb-3">
+                      Our real-time optimization engine continuously monitors market conditions including repo rates, inflation, and competitor pricing. 
+                      The AI model recalculates the optimal interest rate every few seconds to ensure you always get the best possible offer.
+                    </p>
+                    <p className="text-purple-200 leading-relaxed">
+                      The system has performed {updateCount} market updates since initial calculation, adjusting rates dynamically based on 
+                      changing economic conditions while maintaining profitability and fairness.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

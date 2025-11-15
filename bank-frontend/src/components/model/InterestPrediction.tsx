@@ -8,8 +8,18 @@ import {
   Sparkles, 
   Info, 
   Target, 
-  Zap 
+  Zap,
+  FileText,
+  X
 } from 'lucide-react';
+
+interface PredictionResult {
+  rate: number;
+  term: number;
+  dti: number;
+  capacity: number;
+  explanation: string[];
+}
 
 function App() {
   const [formData, setFormData] = useState({
@@ -19,10 +29,11 @@ function App() {
     loanAmount: '',
     employmentStability: '',
   });
-  const [prediction, setPrediction] = useState(null);
+  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showDetailedExplanation, setShowDetailedExplanation] = useState(false);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -33,9 +44,10 @@ function App() {
   const handlePredict = () => {
     setIsLoading(true);
     setPrediction(null);
+    setShowDetailedExplanation(false);
 
     setTimeout(() => {
-      const creditScore = parseFloat(formData.creditScore) || 300;
+      const creditScore = Number(formData.creditScore) || 300;
       const monthlyIncome = parseFloat(formData.monthlyIncome) || 0;
       const existingEmis = parseFloat(formData.existingEmis) || 0;
       const loanAmount = parseFloat(formData.loanAmount) || 0;
@@ -45,7 +57,7 @@ function App() {
       const dtiRatio = (existingEmis * 12) / annualIncome;
       const monthlyRepaymentCapacity = monthlyIncome - existingEmis;
 
-      let explanation = [];
+      const explanation = [];
       let baseRate = 8.5;
       explanation.push(`Base interest rate started at ${baseRate}%.`);
 
@@ -105,7 +117,7 @@ function App() {
     }, 1500);
   };
   
-  const formatCurrency = (value) => {
+  const formatCurrency = (value: number) => {
     if (typeof value !== 'number' || isNaN(value)) {
       value = 0;
     }
@@ -116,21 +128,21 @@ function App() {
     }).format(value);
   };
 
-  const getCreditScoreColor = (score) => {
+  const getCreditScoreColor = (score: number) => {
     if (score >= 780) return 'text-green-400';
     if (score >= 720) return 'text-blue-400';
     if (score >= 650) return 'text-yellow-400';
     return 'text-red-400';
   };
 
-  const getCreditScoreLabel = (score) => {
+  const getCreditScoreLabel = (score: number) => {
     if (score >= 780) return 'Excellent';
     if (score >= 720) return 'Good';
     if (score >= 650) return 'Moderate';
     return 'High Risk';
   };
 
-  const calculateEMI = (principal, annualRate, termInMonths) => {
+  const calculateEMI = (principal: number, annualRate: number, termInMonths: number) => {
     if (!principal || !annualRate || !termInMonths || principal <= 0 || termInMonths <= 0) return 0;
     // Handle 0% interest rate case
     if (annualRate === 0) return principal / termInMonths;
@@ -252,6 +264,7 @@ function App() {
                   placeholder="e.g., 36"
                 />
               </div>
+              
 
               {/* Submit Button */}
               <button
@@ -363,6 +376,165 @@ function App() {
                         calculateEMI(parseFloat(formData.loanAmount), prediction.rate, prediction.term) * prediction.term
                       )}
                     </p>
+                  </div>
+                )}
+
+                {/* Detailed Explanation Button */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowDetailedExplanation(!showDetailedExplanation)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg flex items-center gap-3 hover:scale-105"
+                  >
+                    <FileText className="w-6 h-6" />
+                    {showDetailedExplanation ? 'Hide Detailed Explanation' : 'View Detailed Explanation'}
+                  </button>
+                </div>
+
+                {/* Detailed Explanation Modal/Section */}
+                {showDetailedExplanation && (
+                  <div className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 backdrop-blur-lg rounded-xl border-2 border-purple-400/50 p-8 shadow-2xl animate-fadeIn">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <Sparkles className="w-8 h-8 text-purple-400" />
+                        Complete AI Analysis Breakdown
+                      </h3>
+                      <button
+                        onClick={() => setShowDetailedExplanation(false)}
+                        className="text-purple-300 hover:text-white transition-colors"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-6">
+                      {/* Input Summary */}
+                      <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                        <h4 className="text-xl font-semibold text-purple-200 mb-4 flex items-center gap-2">
+                          <Target className="w-5 h-5" />
+                          Input Parameters
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-purple-300 text-sm mb-1">Credit Score</p>
+                            <p className={`text-2xl font-bold ${getCreditScoreColor(formData.creditScore)}`}>
+                              {formData.creditScore} ({getCreditScoreLabel(formData.creditScore)})
+                            </p>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-purple-300 text-sm mb-1">Monthly Income</p>
+                            <p className="text-2xl font-bold text-white">{formatCurrency(parseFloat(formData.monthlyIncome) || 0)}</p>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-purple-300 text-sm mb-1">Existing EMIs</p>
+                            <p className="text-2xl font-bold text-white">{formatCurrency(parseFloat(formData.existingEmis) || 0)}</p>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-purple-300 text-sm mb-1">Loan Amount</p>
+                            <p className="text-2xl font-bold text-white">{formatCurrency(parseFloat(formData.loanAmount) || 0)}</p>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-purple-300 text-sm mb-1">Employment Stability</p>
+                            <p className="text-2xl font-bold text-white">{formData.employmentStability} months</p>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-purple-300 text-sm mb-1">DTI Ratio</p>
+                            <p className="text-2xl font-bold text-white">{(prediction.dti * 100).toFixed(1)}%</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step-by-Step Calculation */}
+                      <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                        <h4 className="text-xl font-semibold text-purple-200 mb-4 flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5" />
+                          AI Decision Process
+                        </h4>
+                        <div className="space-y-3">
+                          {prediction.explanation.map((item, index) => (
+                            <div key={index} className="flex items-start gap-4 bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-colors">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 font-bold text-white">
+                                {index + 1}
+                              </div>
+                              <p className="text-purple-100 leading-relaxed flex-grow">{item}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Risk Assessment */}
+                      <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                        <h4 className="text-xl font-semibold text-purple-200 mb-4 flex items-center gap-2">
+                          <Info className="w-5 h-5" />
+                          Risk & Repayment Analysis
+                        </h4>
+                        <div className="space-y-4">
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-purple-300 mb-2">Debt-to-Income Ratio Assessment</p>
+                            <div className="flex items-center gap-4">
+                              <div className="flex-grow bg-white/20 rounded-full h-3 overflow-hidden">
+                                <div 
+                                  className={`h-full ${prediction.dti > 0.45 ? 'bg-red-500' : prediction.dti > 0.3 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                  style={{ width: `${Math.min(prediction.dti * 100, 100)}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-white font-bold">{(prediction.dti * 100).toFixed(1)}%</span>
+                            </div>
+                            <p className="text-purple-200 text-sm mt-2">
+                              {prediction.dti > 0.45 ? '⚠️ High DTI - Higher risk profile' : 
+                               prediction.dti > 0.3 ? '⚡ Moderate DTI - Acceptable risk' : 
+                               '✅ Low DTI - Strong financial position'}
+                            </p>
+                          </div>
+
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-purple-300 mb-2">Monthly Repayment Capacity</p>
+                            <p className="text-3xl font-bold text-white mb-2">{formatCurrency(prediction.capacity)}</p>
+                            <p className="text-purple-200 text-sm">
+                              Available after existing EMIs: {formatCurrency(parseFloat(formData.monthlyIncome) || 0)} - {formatCurrency(parseFloat(formData.existingEmis) || 0)}
+                            </p>
+                          </div>
+
+                          {formData.loanAmount && (
+                            <div className="bg-white/5 rounded-lg p-4">
+                              <p className="text-purple-300 mb-2">Estimated EMI vs Capacity</p>
+                              <div className="flex items-center gap-4 mb-2">
+                                <div className="flex-grow">
+                                  <p className="text-sm text-purple-200 mb-1">Your EMI</p>
+                                  <p className="text-2xl font-bold text-white">
+                                    {formatCurrency(calculateEMI(parseFloat(formData.loanAmount), prediction.rate, prediction.term))}
+                                  </p>
+                                </div>
+                                <div className="flex-grow">
+                                  <p className="text-sm text-purple-200 mb-1">Capacity</p>
+                                  <p className="text-2xl font-bold text-white">{formatCurrency(prediction.capacity)}</p>
+                                </div>
+                              </div>
+                              <p className="text-purple-200 text-sm">
+                                {calculateEMI(parseFloat(formData.loanAmount), prediction.rate, prediction.term) <= prediction.capacity 
+                                  ? '✅ EMI is within your repayment capacity' 
+                                  : '⚠️ EMI exceeds recommended capacity'}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Model Information */}
+                      <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-6 border border-purple-400/50">
+                        <h4 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-purple-400" />
+                          About This AI Model
+                        </h4>
+                        <p className="text-purple-200 leading-relaxed mb-3">
+                          Our AI-powered prediction model analyzes multiple financial factors including credit score, income levels, 
+                          debt obligations, and employment stability to determine the optimal interest rate and loan tenure for your profile.
+                        </p>
+                        <p className="text-purple-200 leading-relaxed">
+                          The model starts with a base rate and applies adjustments based on risk factors, ensuring fair and 
+                          transparent lending decisions while maintaining financial sustainability for both borrower and lender.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

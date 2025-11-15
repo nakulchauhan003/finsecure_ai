@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Shield, AlertTriangle, CheckCircle, XCircle, TrendingUp, User, Briefcase, CreditCard, Calendar, DollarSign, Activity, Target, Brain, Zap, Eye, Lock, FileCheck, BarChart3, Percent } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, XCircle, TrendingUp, User, Briefcase, CreditCard, Calendar, DollarSign, Activity, Target, Brain, Zap, Eye, Lock, FileCheck, BarChart3, Percent, FileText, X, Sparkles } from 'lucide-react';
 
 export default function RiskAssessmentSystem() {
   const [stage, setStage] = useState('input'); // input, processing, results
+  const [showDetailedExplanation, setShowDetailedExplanation] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     age: '',
@@ -617,6 +618,156 @@ export default function RiskAssessmentSystem() {
                 <p className="text-green-300 text-sm mt-2">Annual income vs loan</p>
               </div>
             </div>
+
+            {/* Detailed Explanation Button */}
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowDetailedExplanation(!showDetailedExplanation)}
+                className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg flex items-center gap-3 hover:scale-105"
+              >
+                <FileText className="w-6 h-6" />
+                {showDetailedExplanation ? 'Hide Detailed Explanation' : 'View Detailed Explanation'}
+              </button>
+            </div>
+
+            {/* Detailed Explanation Section */}
+            {showDetailedExplanation && (
+              <div className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 backdrop-blur-lg rounded-xl border-2 border-indigo-400/50 p-8 shadow-2xl animate-fadeIn">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                    <Sparkles className="w-8 h-8 text-indigo-400" />
+                    Complete Risk Analysis Breakdown
+                  </h3>
+                  <button
+                    onClick={() => setShowDetailedExplanation(false)}
+                    className="text-indigo-300 hover:text-white transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Input Summary */}
+                  <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                    <h4 className="text-xl font-semibold text-indigo-200 mb-4 flex items-center gap-2">
+                      <User className="w-5 h-5" />
+                      Customer Profile Summary
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-indigo-300 text-sm mb-1">Credit Score</p>
+                        <p className="text-2xl font-bold text-white">{formData.creditScore}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-indigo-300 text-sm mb-1">Monthly Income</p>
+                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.monthlyIncome).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-indigo-300 text-sm mb-1">Loan Amount</p>
+                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.loanAmount).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-indigo-300 text-sm mb-1">Employment Years</p>
+                        <p className="text-2xl font-bold text-white">{formData.employmentYears}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-indigo-300 text-sm mb-1">Savings Balance</p>
+                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.savingsBalance).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <p className="text-indigo-300 text-sm mb-1">Previous Defaults</p>
+                        <p className="text-2xl font-bold text-white">{formData.previousDefaults}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Risk Calculation Methodology */}
+                  <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                    <h4 className="text-xl font-semibold text-indigo-200 mb-4 flex items-center gap-2">
+                      <Brain className="w-5 h-5" />
+                      AI Risk Calculation Methodology
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0 font-bold text-white">1</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Credit Score Analysis (35% weight)</p>
+                          <p className="text-indigo-200 text-sm">Evaluated your score of {formData.creditScore} against industry benchmarks</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0 font-bold text-white">2</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Debt-to-Income Ratio (25% weight)</p>
+                          <p className="text-indigo-200 text-sm">Calculated DTI at {assessment.metrics.dtiRatio}% based on existing EMIs vs income</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0 font-bold text-white">3</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Employment Stability (15% weight)</p>
+                          <p className="text-indigo-200 text-sm">{formData.employmentYears} years of employment history analyzed</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0 font-bold text-white">4</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Savings Coverage (10% weight)</p>
+                          <p className="text-indigo-200 text-sm">{assessment.metrics.savingsToLoan}% of loan amount in savings</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0 font-bold text-white">5</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Repayment History (10% weight)</p>
+                          <p className="text-indigo-200 text-sm">{formData.previousDefaults === '0' ? 'Clean record with no defaults' : `${formData.previousDefaults} previous defaults detected`}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0 font-bold text-white">6</div>
+                        <div className="flex-grow">
+                          <p className="text-white font-medium mb-1">Account Age (5% weight)</p>
+                          <p className="text-indigo-200 text-sm">{formData.accountAge} years of banking relationship</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fraud Detection Details */}
+                  {assessment.fraudFlags.length > 0 && (
+                    <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                      <h4 className="text-xl font-semibold text-indigo-200 mb-4 flex items-center gap-2">
+                        <Lock className="w-5 h-5" />
+                        Fraud Detection Analysis
+                      </h4>
+                      <p className="text-indigo-200 text-sm mb-4">Our AI detected {assessment.fraudFlags.length} warning indicator(s) with a fraud risk score of {assessment.fraudScore}%</p>
+                      <div className="space-y-2">
+                        {assessment.fraudFlags.map((flag, index) => (
+                          <div key={index} className="bg-white/5 rounded-lg p-3 border border-white/10">
+                            <p className="text-white">{flag.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Model Information */}
+                  <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-lg p-6 border border-indigo-400/50">
+                    <h4 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-indigo-400" />
+                      About This AI Model
+                    </h4>
+                    <p className="text-indigo-200 leading-relaxed mb-3">
+                      Our risk assessment system uses advanced machine learning algorithms to evaluate credit worthiness. 
+                      The model analyzes multiple financial indicators with weighted importance to generate a comprehensive risk score.
+                    </p>
+                    <p className="text-indigo-200 leading-relaxed">
+                      Final risk score of {assessment.finalRiskScore} indicates {assessment.riskCategory.toLowerCase()} with recommended interest rate of {assessment.interestRate ? `${assessment.interestRate}%` : 'N/A'}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

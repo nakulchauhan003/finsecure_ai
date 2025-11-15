@@ -16,6 +16,7 @@ import {
 const PersonalizedRateComparison = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [showDetailedExplanation, setShowDetailedExplanation] = useState(false);
   const [customerData, setCustomerData] = useState({
     name: '',
     age: '',
@@ -605,6 +606,165 @@ const PersonalizedRateComparison = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Detailed Explanation Button */}
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowDetailedExplanation(!showDetailedExplanation)}
+                  className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg flex items-center gap-3 hover:scale-105"
+                >
+                  <FileText className="w-6 h-6" />
+                  {showDetailedExplanation ? 'Hide Detailed Explanation' : 'View Detailed Explanation'}
+                </button>
+              </div>
+
+              {/* Detailed Explanation Section */}
+              {showDetailedExplanation && (
+                <div className="bg-gradient-to-br from-blue-900/50 to-cyan-900/50 backdrop-blur-lg rounded-xl border-2 border-blue-400/50 p-8 shadow-2xl animate-fadeIn">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                      <Sparkles className="w-8 h-8 text-blue-400" />
+                      Complete Comparison Analysis
+                    </h3>
+                    <button
+                      onClick={() => setShowDetailedExplanation(false)}
+                      className="text-blue-300 hover:text-white transition-colors"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Customer Profile */}
+                    <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                      <h4 className="text-xl font-semibold text-blue-200 mb-4 flex items-center gap-2">
+                        <User className="w-5 h-5" />
+                        Customer Profile
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <p className="text-blue-300 text-sm mb-1">Name</p>
+                          <p className="text-xl font-bold text-white">{customerData.name}</p>
+                        </div>
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <p className="text-blue-300 text-sm mb-1">Age</p>
+                          <p className="text-xl font-bold text-white">{customerData.age} years</p>
+                        </div>
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <p className="text-blue-300 text-sm mb-1">Credit Score</p>
+                          <p className="text-xl font-bold text-white">{customerData.creditScore}</p>
+                        </div>
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <p className="text-blue-300 text-sm mb-1">Monthly Income</p>
+                          <p className="text-xl font-bold text-white">₹{parseInt(customerData.income).toLocaleString()}</p>
+                        </div>
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <p className="text-blue-300 text-sm mb-1">Loan Amount</p>
+                          <p className="text-xl font-bold text-white">₹{parseInt(customerData.loanAmount).toLocaleString()}</p>
+                        </div>
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <p className="text-blue-300 text-sm mb-1">Loan Type</p>
+                          <p className="text-xl font-bold text-white capitalize">{customerData.loanType}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Strategy Explanation */}
+                    <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                      <h4 className="text-xl font-semibold text-blue-200 mb-4 flex items-center gap-2">
+                        <Brain className="w-5 h-5" />
+                        AI Counter-Offer Strategy
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0 font-bold text-white">1</div>
+                          <div className="flex-grow">
+                            <p className="text-white font-medium mb-1">Analyzed Customer Risk Profile</p>
+                            <p className="text-blue-200 text-sm">Risk Category: {comparisonResult.riskAnalysis.category} (Score: {comparisonResult.riskAnalysis.riskScore}%)</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0 font-bold text-white">2</div>
+                          <div className="flex-grow">
+                            <p className="text-white font-medium mb-1">Evaluated Competitor Offer</p>
+                            <p className="text-blue-200 text-sm">{customerData.competitorBankName} offering {comparisonResult.competitorOffer.rate}% interest rate</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0 font-bold text-white">3</div>
+                          <div className="flex-grow">
+                            <p className="text-white font-medium mb-1">Generated Counter-Offer</p>
+                            <p className="text-blue-200 text-sm">Strategy: {comparisonResult.ourOffer.strategy}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0 font-bold text-white">4</div>
+                          <div className="flex-grow">
+                            <p className="text-white font-medium mb-1">Calculated Savings</p>
+                            <p className="text-blue-200 text-sm">Customer saves ₹{comparisonResult.savings.toLocaleString()} with our offer</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Detailed Comparison */}
+                    <div className="bg-white/10 rounded-lg p-6 border border-white/20">
+                      <h4 className="text-xl font-semibold text-blue-200 mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5" />
+                        Detailed Financial Comparison
+                      </h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="border-b border-white/20">
+                              <th className="p-3 text-blue-200">Metric</th>
+                              <th className="p-3 text-blue-200 text-center">Competitor</th>
+                              <th className="p-3 text-blue-200 text-center">Our Offer</th>
+                              <th className="p-3 text-blue-200 text-center">Difference</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b border-white/10">
+                              <td className="p-3 text-white">Interest Rate</td>
+                              <td className="p-3 text-center text-red-300 font-bold">{comparisonResult.competitorOffer.rate}%</td>
+                              <td className="p-3 text-center text-green-300 font-bold">{comparisonResult.ourOffer.rate}%</td>
+                              <td className="p-3 text-center text-white">{(parseFloat(comparisonResult.competitorOffer.rate) - parseFloat(comparisonResult.ourOffer.rate)).toFixed(2)}%</td>
+                            </tr>
+                            <tr className="border-b border-white/10">
+                              <td className="p-3 text-white">Monthly EMI</td>
+                              <td className="p-3 text-center text-red-300">₹{comparisonResult.competitorOffer.emi.toLocaleString()}</td>
+                              <td className="p-3 text-center text-green-300">₹{comparisonResult.ourOffer.emi.toLocaleString()}</td>
+                              <td className="p-3 text-center text-white">₹{(comparisonResult.competitorOffer.emi - comparisonResult.ourOffer.emi).toLocaleString()}</td>
+                            </tr>
+                            <tr>
+                              <td className="p-3 text-white">Total Payable</td>
+                              <td className="p-3 text-center text-red-300">₹{comparisonResult.competitorOffer.totalPayable.toLocaleString()}</td>
+                              <td className="p-3 text-center text-green-300">₹{comparisonResult.ourOffer.totalPayable.toLocaleString()}</td>
+                              <td className="p-3 text-center text-green-400 font-bold">₹{comparisonResult.savings.toLocaleString()}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Model Information */}
+                    <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-lg p-6 border border-blue-400/50">
+                      <h4 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-blue-400" />
+                        About This AI System
+                      </h4>
+                      <p className="text-blue-200 leading-relaxed mb-3">
+                        Our AI-powered rate comparison system analyzes competitor offers and automatically generates optimal counter-offers 
+                        based on customer risk profile, market conditions, and strategic pricing rules.
+                      </p>
+                      <p className="text-blue-200 leading-relaxed">
+                        The system uses dynamic pricing strategies: aggressive undercutting for low-risk customers, moderate matching for 
+                        medium-risk profiles, and conservative pricing for high-risk applicants to ensure profitability.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* --- Action Buttons --- */}
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
