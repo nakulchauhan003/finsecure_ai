@@ -1,6 +1,6 @@
 import React from 'react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { revenueMetrics, monthlyRevenueData, churnPredictionData } from '../data/revenueData';
+import { revenueMetrics, monthlyRevenueData, churnPredictionData, engineeredFeatures } from '../data/revenueData';
 
 const RevenueOverview = () => {
   const COLORS = ['#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1'];
@@ -77,16 +77,54 @@ const RevenueOverview = () => {
         <div className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 backdrop-blur-lg border border-blue-400/30 p-6 rounded-xl shadow-lg hover:shadow-blue-500/20 transition-all">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-300">Customer LTV</p>
-              <p className="text-2xl font-bold text-blue-400">{formatCurrency(revenueMetrics.averageCustomerLifetimeValue)}</p>
-              <p className="text-sm text-purple-300">Average lifetime value</p>
+              <p className="text-sm font-medium text-blue-300">Annual Recurring Revenue</p>
+              <p className="text-2xl font-bold text-blue-400">{formatCurrency(revenueMetrics.arr)}</p>
+              <p className="text-sm text-purple-300">ARR = MRR × 12</p>
             </div>
             <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-lg">
               <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* SaaS Intelligence Metrics Banner */}
+      <div className="bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 backdrop-blur-lg border border-purple-400/40 p-6 rounded-xl shadow-2xl">
+        <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+          <svg className="h-6 w-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          SaaS-Grade Intelligence Metrics
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white/10 rounded-lg p-4">
+            <p className="text-xs text-cyan-300 mb-1">LTV / CAC Ratio</p>
+            <p className="text-2xl font-bold text-white">{engineeredFeatures.ltvToCacRatio}x</p>
+            <p className="text-xs text-gray-400 mt-1">Excellent</p>
+          </div>
+          <div className="bg-white/10 rounded-lg p-4">
+            <p className="text-xs text-cyan-300 mb-1">EMI Consistency Score</p>
+            <p className="text-2xl font-bold text-white">{engineeredFeatures.emiConsistency}%</p>
+            <p className="text-xs text-gray-400 mt-1">Very High</p>
+          </div>
+          <div className="bg-white/10 rounded-lg p-4">
+            <p className="text-xs text-cyan-300 mb-1">Portfolio Stability</p>
+            <p className="text-2xl font-bold text-white">{revenueMetrics.loanPortfolioStabilityScore}/100</p>
+            <p className="text-xs text-gray-400 mt-1">Strong</p>
+          </div>
+          <div className="bg-white/10 rounded-lg p-4">
+            <p className="text-xs text-cyan-300 mb-1">Financial Health</p>
+            <p className="text-2xl font-bold text-white">{revenueMetrics.financialHealthScore}</p>
+            <p className="text-xs text-gray-400 mt-1">Stable</p>
+          </div>
+        </div>
+        <div className="mt-4 text-center">
+          <p className="text-sm text-purple-200">
+            🧠 Powered by AI/ML Models: ARIMA, Prophet, Random Forest, XGBoost | 
+            <span className="text-cyan-300 font-semibold"> View detailed analysis in SaaS Intelligence tab</span>
+          </p>
         </div>
       </div>
 

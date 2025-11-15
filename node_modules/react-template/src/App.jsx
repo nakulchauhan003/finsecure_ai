@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import AuthWrapper from './components/AuthWrapper';
 import Header from './components/Header';
 import RevenueOverview from './components/RevenueOverview';
+import RevenueIntelligence from './components/RevenueIntelligence';
 import BillingAnomalies from './components/BillingAnomalies';
 import ChurnRiskAnalysis from './components/ChurnRiskAnalysis';
 import PaymentFailures from './components/PaymentFailures';
@@ -19,6 +20,8 @@ function App() {
     switch (activeTab) {
       case 'overview':
         return <RevenueOverview {...commonProps} />;
+      case 'intelligence':
+        return <RevenueIntelligence />;
       case 'anomalies':
         return <BillingAnomalies {...commonProps} />;
       case 'churn':
@@ -36,6 +39,7 @@ function App() {
 
   const navigationItems = [
     { id: 'overview', name: 'Revenue Overview', icon: '📊' },
+    { id: 'intelligence', name: 'SaaS Intelligence', icon: '🧠' },
     { id: 'anomalies', name: 'Billing Anomalies', icon: '⚠️' },
     { id: 'churn', name: 'Churn Risk', icon: '📉' },
     { id: 'payments', name: 'Payment Failures', icon: '💳' },
