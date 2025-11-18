@@ -10,14 +10,75 @@ import {
   Calculator,
   X,
   Target, // Added for competitor
-  ShieldCheck // Added for our offer
+  ShieldCheck, // Added for our offer
+  FileText, // Added missing import
+  User, // Added missing import
+  Brain // Added missing import
 } from 'lucide-react';
+
+// Define types for our data structures
+interface CustomerData {
+  name: string;
+  age: string;
+  income: string;
+  creditScore: string;
+  existingDebt: string;
+  loanType: string;
+  loanAmount: string;
+  tenure: string;
+  competitorBankName: string;
+  competitorRate: string;
+}
+
+interface RiskFactor {
+  factor: string;
+  impact: string;
+  value: string;
+}
+
+interface RiskAnalysis {
+  riskScore: string;
+  category: string;
+  baseRate: number;
+  adjustment: number;
+  finalRate: number;
+  dtiRatio: string;
+  factors: RiskFactor[];
+}
+
+interface OfferMetrics {
+  emi: number;
+  totalPayable: number;
+  processingFee: number;
+}
+
+interface CompetitorOffer {
+  name: string;
+  rate: string;
+  emi: number;
+  totalPayable: number;
+}
+
+interface OurOffer {
+  name: string;
+  rate: string;
+  strategy: string;
+  emi: number;
+  totalPayable: number;
+}
+
+interface ComparisonResult {
+  riskAnalysis: RiskAnalysis;
+  competitorOffer: CompetitorOffer;
+  ourOffer: OurOffer;
+  savings: number;
+}
 
 const PersonalizedRateComparison = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showDetailedExplanation, setShowDetailedExplanation] = useState(false);
-  const [customerData, setCustomerData] = useState({
+  const [customerData, setCustomerData] = useState<CustomerData>({
     name: '',
     age: '',
     income: '',
@@ -32,13 +93,13 @@ const PersonalizedRateComparison = () => {
   });
   
   // Renamed to 'comparisonResult' to reflect the new purpose
-  const [comparisonResult, setComparisonResult] = useState(null);
+  const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [formError, setFormError] = useState(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // --- Risk Analysis Logic (Unchanged) ---
   // This logic is still needed to assess the customer's risk for our bank
-  const analyzeRisk = (data) => {
+  const analyzeRisk = (data: CustomerData) => {
     const creditScore = parseInt(data.creditScore);
     const income = parseInt(data.income);
     const debt = parseInt(data.existingDebt);
@@ -68,9 +129,9 @@ const PersonalizedRateComparison = () => {
 
     riskScore = riskScore / 4;
 
-    let category;
-    let baseRate;
-    let adjustment;
+    let category: string;
+    let baseRate: number;
+    let adjustment: number;
     
     if (riskScore < 0.35) {
       category = 'Low Risk';
@@ -88,11 +149,11 @@ const PersonalizedRateComparison = () => {
 
     const finalRate = baseRate + adjustment;
 
-    const factors = [];
+    const factors: RiskFactor[] = [];
     if (creditScore >= 750) {
-      factors.push({ factor: 'Excellent Credit Score', impact: 'positive', value: creditScore });
+      factors.push({ factor: 'Excellent Credit Score', impact: 'positive', value: creditScore.toString() });
     } else if (creditScore < 550) {
-      factors.push({ factor: 'Low Credit Score', impact: 'negative', value: creditScore });
+      factors.push({ factor: 'Low Credit Score', impact: 'negative', value: creditScore.toString() });
     }
     
     if (dtiRatio < 30) {
@@ -102,9 +163,9 @@ const PersonalizedRateComparison = () => {
     }
     
     if (income >= 100000) {
-      factors.push({ factor: 'Strong Income Stability', impact: 'positive', value: `₹${parseInt(income).toLocaleString()}` });
+      factors.push({ factor: 'Strong Income Stability', impact: 'positive', value: `₹${income.toLocaleString()}` });
     } else if (income < 50000) {
-      factors.push({ factor: 'Limited Income', impact: 'negative', value: `₹${parseInt(income).toLocaleString()}` });
+      factors.push({ factor: 'Limited Income', impact: 'negative', value: `₹${income.toLocaleString()}` });
     }
 
     return {
@@ -119,7 +180,7 @@ const PersonalizedRateComparison = () => {
   };
 
   // --- Helper function to calculate EMI and Total Payment ---
-  const calculateOfferMetrics = (amountStr, tenureStr, rateStr) => {
+  const calculateOfferMetrics = (amountStr: string, tenureStr: string, rateStr: string): OfferMetrics => {
     const amount = parseFloat(amountStr);
     const years = parseFloat(tenureStr);
     const rate = parseFloat(rateStr);
@@ -141,7 +202,6 @@ const PersonalizedRateComparison = () => {
       processingFee: Math.round(processingFee),
     };
   };
-
 
   // --- Handlers ---
   const handleSubmit = () => {
@@ -168,8 +228,8 @@ const PersonalizedRateComparison = () => {
       const ourStandardRate = riskAnalysis.finalRate;
       const { category } = riskAnalysis;
 
-      let ourOfferedRate;
-      let strategy;
+      let ourOfferedRate: number;
+      let strategy: string;
 
       // 2. Determine our counter-offer strategy
       if (ourStandardRate < competitorRate) {
@@ -196,13 +256,13 @@ const PersonalizedRateComparison = () => {
       const competitorMetrics = calculateOfferMetrics(
         customerData.loanAmount,
         customerData.tenure,
-        competitorRate
+        competitorRate.toString()
       );
 
       const ourMetrics = calculateOfferMetrics(
         customerData.loanAmount,
         customerData.tenure,
-        ourOfferedRate
+        ourOfferedRate.toString()
       );
 
       // 4. Set the final comparison result
@@ -227,18 +287,17 @@ const PersonalizedRateComparison = () => {
     }, 2000);
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
     setCustomerData({
       ...customerData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
   };
 
   const resetForm = () => {
     setStep(1);
-    setComparisonResult(null); // Changed from analysisResult
-    setLoanOffers([]);
-    setSelectedOffer(null);
+    setComparisonResult(null);
     setFormError(null);
     // Reset competitor fields as well
     setCustomerData({
@@ -250,7 +309,6 @@ const PersonalizedRateComparison = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 md:p-8">
-      {/* ... existing code ... */}
       <div className="max-w-7xl mx-auto">
         {/* --- Header --- */}
         <div className="text-center mb-8">
@@ -264,7 +322,6 @@ const PersonalizedRateComparison = () => {
         </div>
 
         {/* --- Stepper --- */}
-        {/* ... existing code ... */}
         <div className="flex items-center justify-center gap-4 mb-8">
           <div className={`flex items-center gap-2 ${step >= 1 ? 'text-blue-400' : 'text-gray-400'}`}>
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 1 ? 'bg-blue-500 text-white' : 'bg-white/10'}`}>
@@ -284,7 +341,6 @@ const PersonalizedRateComparison = () => {
         {/* --- Step 1: Profile Form --- */}
         {step === 1 && (
           <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 md:p-8 border border-white/10">
-            {/* ... existing code ... */}
             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
               <Calculator className="w-6 h-6 text-blue-400" />
               Customer & Competitor Details
@@ -295,7 +351,6 @@ const PersonalizedRateComparison = () => {
                 {/* --- Customer Fields (Unchanged) --- */}
                 <div>
                   <label className="block text-sm font-medium text-blue-300 mb-2">Full Name</label>
-                  {/* ... existing code ... */}
                   <input
                     type="text"
                     name="name"
@@ -308,7 +363,6 @@ const PersonalizedRateComparison = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-blue-300 mb-2">Age</label>
-                  {/* ... existing code ... */}
                   <input
                     type="number"
                     name="age"
@@ -321,7 +375,6 @@ const PersonalizedRateComparison = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-blue-300 mb-2">Monthly Income (₹)</label>
-                  {/* ... existing code ... */}
                   <input
                     type="number"
                     name="income"
@@ -334,7 +387,6 @@ const PersonalizedRateComparison = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-blue-300 mb-2">Credit Score (300-850)</label>
-                  {/* ... existing code ... */}
                   <input
                     type="number"
                     name="creditScore"
@@ -349,7 +401,6 @@ const PersonalizedRateComparison = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-blue-300 mb-2">Existing Monthly Debt (₹)</label>
-                  {/* ... existing code ... */}
                   <input
                     type="number"
                     name="existingDebt"
@@ -362,7 +413,6 @@ const PersonalizedRateComparison = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-blue-300 mb-2">Loan Type</label>
-                  {/* ... existing code ... */}
                   <select
                     name="loanType"
                     value={customerData.loanType}
@@ -378,7 +428,6 @@ const PersonalizedRateComparison = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-blue-300 mb-2">Loan Amount (₹)</label>
-                  {/* ... existing code ... */}
                   <input
                     type="number"
                     name="loanAmount"
@@ -391,7 +440,6 @@ const PersonalizedRateComparison = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-blue-300 mb-2">Tenure (Years)</label>
-                  {/* ... existing code ... */}
                   <select
                     name="tenure"
                     value={customerData.tenure}
@@ -399,7 +447,24 @@ const PersonalizedRateComparison = () => {
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option className="text-black" value="1">1 Year</option>
-                    {/* ... existing code ... */}
+                    <option className="text-black" value="2">2 Years</option>
+                    <option className="text-black" value="3">3 Years</option>
+                    <option className="text-black" value="4">4 Years</option>
+                    <option className="text-black" value="5">5 Years</option>
+                    <option className="text-black" value="6">6 Years</option>
+                    <option className="text-black" value="7">7 Years</option>
+                    <option className="text-black" value="8">8 Years</option>
+                    <option className="text-black" value="9">9 Years</option>
+                    <option className="text-black" value="10">10 Years</option>
+                    <option className="text-black" value="11">11 Years</option>
+                    <option className="text-black" value="12">12 Years</option>
+                    <option className="text-black" value="13">13 Years</option>
+                    <option className="text-black" value="14">14 Years</option>
+                    <option className="text-black" value="15">15 Years</option>
+                    <option className="text-black" value="16">16 Years</option>
+                    <option className="text-black" value="17">17 Years</option>
+                    <option className="text-black" value="18">18 Years</option>
+                    <option className="text-black" value="19">19 Years</option>
                     <option className="text-black" value="20">20 Years</option>
                   </select>
                 </div>
@@ -494,7 +559,6 @@ const PersonalizedRateComparison = () => {
 
               {/* --- Explainable AI (Using riskAnalysis object) --- */}
               <div className="bg-white/5 rounded-xl p-6 mb-6 border border-white/10">
-                {/* ... existing code ... */}
                 <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
                   <Info className="w-5 h-5 text-blue-400" />
                   Risk Profile Factors (Explainable AI)
@@ -502,7 +566,6 @@ const PersonalizedRateComparison = () => {
                 <div className="space-y-3">
                   {comparisonResult.riskAnalysis.factors.map((factor, index) => (
                     <div key={index} className="flex items-start gap-3">
-                      {/* ... existing code ... */}
                       {factor.impact === 'positive' ? (
                         <TrendingDown className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                       ) : (
