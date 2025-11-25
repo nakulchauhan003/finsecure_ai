@@ -682,12 +682,12 @@ export default function InterestRateOptimizer() {
                   <span className="text-white">Live updates: {updateCount} market changes detected</span>
                 </div>
                 <button
-                  onClick={simulateMarketUpdate}
+                  onClick={updateMarketDataRealTime}
                   disabled={isUpdating}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:bg-purple-500/50 text-white rounded-lg transition-all"
+                  className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:from-yellow-500/50 disabled:to-orange-500/50 text-white p-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
                 >
-                  <RefreshCw className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
-                  {isUpdating ? 'Updating...' : 'Force Update'}
+                  <Zap className="w-5 h-5" />
+                  {isUpdating ? 'Updating...' : 'Refresh Market Data'}
                 </button>
               </div>
             </div>
@@ -1085,7 +1085,7 @@ export default function InterestRateOptimizer() {
                 New Calculation
               </button>
               <button
-                onClick={simulateMarketUpdate}
+                onClick={updateMarketDataRealTime}
                 disabled={isUpdating}
                 className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:from-yellow-500/50 disabled:to-orange-500/50 text-white p-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
               >

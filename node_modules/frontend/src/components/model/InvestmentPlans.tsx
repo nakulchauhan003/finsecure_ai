@@ -1,4 +1,6 @@
 import { useState, useEffect, ReactNode, useMemo } from 'react';
+// Import Alpha Vantage service
+import { fetchLiveMarketData as fetchAlphaVantageData } from '../../services/alphaVantage';
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, 
   CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ScatterChart, 
@@ -10,7 +12,7 @@ import {
   Brain, Shield, Briefcase, User, RefreshCw, Calculator, Lock, 
   PieChart as PieIcon, Target, CheckCircle, Zap, Clock, Crown, 
   BarChart3, Calendar, Award, Users, Building2, Landmark, Wallet,
-  MessageCircle
+  MessageCircle 
 } from 'lucide-react';
 
 // --- Types ---
@@ -446,9 +448,19 @@ const InvestmentPlansDashboard = () => {
   const fetchLiveMarketData = async () => {
     setIsLoadingLiveData(true);
     try {
-      // Simulate API calls
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use Alpha Vantage API service
+      const liveData = await fetchAlphaVantageData();
       
+      setLiveData({
+        mutualFunds: liveData.mutualFunds,
+        goldBonds: liveData.goldBonds,
+        stocks: liveData.stocks,
+        fixedDeposits: liveData.fixedDeposits,
+        lastUpdated: liveData.lastUpdated
+      });
+    } catch (error) {
+      console.error('Error fetching live data from Alpha Vantage:', error);
+      // Fallback to mock data in case of API failure
       setLiveData({
         mutualFunds: [
           { id: 1, name: "Nifty 50 Index Fund", nav: 145.20, change: 1.2 },
@@ -466,8 +478,6 @@ const InvestmentPlansDashboard = () => {
         ],
         lastUpdated: new Date().toISOString()
       });
-    } catch (error) {
-      console.error('Error fetching live data:', error);
     } finally {
       setIsLoadingLiveData(false);
     }
@@ -533,7 +543,13 @@ const InvestmentPlansDashboard = () => {
       const aiResponse: AIChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        message: `Based on your profile (${userProfile.riskAppetite} risk, ${userProfile.goal} goal), I recommend considering a diversified portfolio. For your ₹${investAmount || 10000} investment, you could allocate:\n\n• 60% Equity Funds (Higher growth)\n• 30% Debt Funds (Stability)\n• 10% Gold (Hedge)\n\nThis aligns with your ${userProfile.investmentHorizon}-year horizon.`,
+        message: `Based on your profile (${userProfile.riskAppetite} risk, ${userProfile.goal} goal), I recommend considering a diversified portfolio. For your ₹${investAmount || 10000} investment, you could allocate:
+
+• 60% Equity Funds (Higher growth)
+• 30% Debt Funds (Stability)
+• 10% Gold (Hedge)
+
+This aligns with your ${userProfile.investmentHorizon}-year horizon.`,
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiResponse]);

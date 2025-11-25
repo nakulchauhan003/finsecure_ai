@@ -1,18 +1,40 @@
 import React, { useState } from 'react';
-import { Shield, AlertTriangle, CheckCircle, XCircle, TrendingUp, User, Briefcase, CreditCard, Calendar, DollarSign, Activity, Target, Brain, Zap, Eye, Lock, FileCheck, BarChart3, Percent, FileText, X, Sparkles } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, XCircle, TrendingUp, User, Briefcase, CreditCard, Calendar, DollarSign, Activity, Target, Brain, Zap, Eye, Lock, FileCheck, BarChart3, Percent, FileText, X, Sparkles, Home, Building, Wrench, ShoppingCart } from 'lucide-react';
 
-interface FormData {
+interface BaseFormData {
   name: string;
   age: string;
   creditScore: number;
-  monthlyIncome: string;
-  existingEMIs: string;
-  employmentYears: string;
-  savingsBalance: string;
   loanAmount: string;
   previousDefaults: string;
   accountAge: string;
 }
+
+interface SalariedFormData extends BaseFormData {
+  employmentType: 'salaried';
+  monthlySalary: string;
+  housingType: 'rent' | 'owned';
+  officeRent: string;
+  otherFixedExpenses: string;
+  totalExpenditure: string;
+  loanEnquiries: string;
+  applicationDuration: string;
+}
+
+interface SelfEmployedFormData extends BaseFormData {
+  employmentType: 'self-employed';
+  businessType: 'trading' | 'manufacturing' | 'service';
+  grossRevenue: string;
+  expectedMargin: string;
+  businessRent: string;
+  utilitiesSalaries: string;
+  businessAge: string;
+  gstRegistered: 'yes' | 'no';
+  loanEnquiries: string;
+  applicationPeriod: string;
+}
+
+type FormData = SalariedFormData | SelfEmployedFormData;
 
 interface SHAPValue {
   feature: string;
@@ -27,7 +49,7 @@ interface Feature {
   shap: number;
   description: string;
   impact: string;
-  contribution?: number; // Add contribution property
+  contribution?: number;
 }
 
 interface FraudFlag {
@@ -65,6 +87,8 @@ interface Assessment {
   fraudScore: string;
   metrics: Metrics;
   modelInfo: ModelInfo;
+  riskScore: number;
+  explainableReason: string;
 }
 
 // Hybrid XGBoost-SHAP with Adaptive Thresholding Model
@@ -72,25 +96,11 @@ const useHybridXGBoostSHAP = () => {
   // SHAP values calculation (simplified for demo)
   const calculateSHAPValues = (formData: FormData) => {
     const creditScore = formData.creditScore || 650;
-    const monthlyIncome = Number(formData.monthlyIncome) || 50000;
-    const existingEMIs = Number(formData.existingEMIs) || 0;
-    const employmentYears = Number(formData.employmentYears) || 1;
-    const savingsBalance = Number(formData.savingsBalance) || 0;
     const loanAmount = Number(formData.loanAmount) || 100000;
     const previousDefaults = parseInt(formData.previousDefaults) || 0;
     const accountAge = Number(formData.accountAge) || 1;
 
-    // Calculate metrics
-    const dtiRatio = (existingEMIs / (monthlyIncome || 1));
-    const savingsToLoanRatio = savingsBalance / (loanAmount || 1);
-    const incomeToLoanRatio = (monthlyIncome * 12) / (loanAmount || 1);
-
-    // Unused variables - we'll use void to acknowledge them
-    void incomeToLoanRatio;
-    void employmentYears;
-
-    // SHAP values for each feature (simplified)
-    const shapValues = [
+    let shapValues: SHAPValue[] = [
       { 
         feature: 'Credit Score', 
         value: creditScore, 
@@ -98,36 +108,91 @@ const useHybridXGBoostSHAP = () => {
         description: creditScore >= 750 ? 'Excellent credit score' : creditScore >= 650 ? 'Good credit score' : 'Below average credit score'
       },
       { 
-        feature: 'Debt-to-Income Ratio', 
-        value: `${(dtiRatio * 100).toFixed(1)}%`, 
-        shap: (0.5 - dtiRatio) * 0.4, // Lower DTI is better
-        description: dtiRatio <= 0.3 ? 'Healthy debt-to-income ratio' : dtiRatio <= 0.45 ? 'Acceptable debt burden' : 'High debt burden'
-      },
-      { 
-        feature: 'Employment Stability', 
-        value: `${employmentYears} years`, 
-        shap: Math.min(employmentYears / 10, 1) * 0.15,
-        description: employmentYears >= 5 ? 'Long-term employment stability' : employmentYears >= 2 ? 'Moderate employment history' : 'Limited employment history'
-      },
-      { 
-        feature: 'Savings Coverage', 
-        value: `${(savingsToLoanRatio * 100).toFixed(0)}%`, 
-        shap: (savingsToLoanRatio - 0.2) * 0.2, // 20% is baseline
-        description: savingsToLoanRatio >= 0.5 ? 'Strong savings coverage' : savingsToLoanRatio >= 0.2 ? 'Adequate savings buffer' : 'Low savings coverage'
+        feature: 'Account Age', 
+        value: `${accountAge} years`, 
+        shap: Math.min(accountAge / 10, 1) * 0.05,
+        description: accountAge >= 5 ? 'Long-standing customer' : accountAge >= 2 ? 'Established customer' : 'New customer'
       },
       { 
         feature: 'Repayment History', 
         value: previousDefaults === 0 ? 'Clean' : `${previousDefaults} defaults`, 
         shap: previousDefaults === 0 ? 0.2 : previousDefaults === 1 ? -0.1 : -0.3,
         description: previousDefaults === 0 ? 'No previous defaults' : previousDefaults === 1 ? 'One previous default' : 'Multiple previous defaults'
-      },
-      { 
-        feature: 'Account Age', 
-        value: `${accountAge} years`, 
-        shap: Math.min(accountAge / 10, 1) * 0.05,
-        description: accountAge >= 5 ? 'Long-standing customer' : accountAge >= 2 ? 'Established customer' : 'New customer'
       }
     ];
+
+    // Add employment-specific features
+    if (formData.employmentType === 'salaried') {
+      const monthlySalary = Number(formData.monthlySalary) || 50000;
+      const officeRent = Number(formData.officeRent) || 0;
+      const otherFixedExpenses = Number(formData.otherFixedExpenses) || 0;
+      const totalExpenditure = Number(formData.totalExpenditure) || 0;
+      const loanEnquiries = parseInt(formData.loanEnquiries) || 0;
+      
+      const expenditureToIncomeRatio = totalExpenditure / (monthlySalary || 1);
+      const rentalBurden = officeRent / (monthlySalary || 1);
+      
+      shapValues = [
+        ...shapValues,
+        { 
+          feature: 'Expenditure-to-Income Ratio', 
+          value: `${(expenditureToIncomeRatio * 100).toFixed(1)}%`, 
+          shap: (0.5 - expenditureToIncomeRatio) * 0.4, // Lower ratio is better
+          description: expenditureToIncomeRatio <= 0.5 ? 'Healthy expenditure ratio' : expenditureToIncomeRatio <= 0.7 ? 'Moderate expenditure burden' : 'High expenditure burden'
+        },
+        { 
+          feature: 'Loan Enquiries', 
+          value: loanEnquiries, 
+          shap: loanEnquiries <= 2 ? 0.15 : loanEnquiries <= 5 ? -0.1 : -0.3,
+          description: loanEnquiries <= 2 ? 'Few recent loan enquiries' : loanEnquiries <= 5 ? 'Moderate loan enquiries' : 'Many recent loan enquiries'
+        },
+        { 
+          feature: 'Rental Burden', 
+          value: `${(rentalBurden * 100).toFixed(1)}%`, 
+          shap: (0.3 - rentalBurden) * 0.2, // Lower burden is better
+          description: rentalBurden <= 0.2 ? 'Low rental burden' : rentalBurden <= 0.4 ? 'Moderate rental burden' : 'High rental burden'
+        }
+      ];
+    } else {
+      const grossRevenue = Number(formData.grossRevenue) || 100000;
+      const expectedMargin = Number(formData.expectedMargin) || 20;
+      const businessRent = Number(formData.businessRent) || 0;
+      const utilitiesSalaries = Number(formData.utilitiesSalaries) || 0;
+      const businessAge = Number(formData.businessAge) || 1;
+      const loanEnquiries = parseInt(formData.loanEnquiries) || 0;
+      
+      const netProfit = grossRevenue * (expectedMargin / 100);
+      const totalExpenses = businessRent + utilitiesSalaries;
+      const expenseToIncomeRatio = totalExpenses / (grossRevenue || 1);
+      
+      shapValues = [
+        ...shapValues,
+        { 
+          feature: 'Business Margin', 
+          value: `${expectedMargin}%`, 
+          shap: expectedMargin >= 25 ? 0.2 : expectedMargin >= 15 ? 0.1 : -0.2,
+          description: expectedMargin >= 25 ? 'High business margin' : expectedMargin >= 15 ? 'Moderate business margin' : 'Low business margin'
+        },
+        { 
+          feature: 'Expense-to-Income Ratio', 
+          value: `${(expenseToIncomeRatio * 100).toFixed(1)}%`, 
+          shap: (0.5 - expenseToIncomeRatio) * 0.3, // Lower ratio is better
+          description: expenseToIncomeRatio <= 0.4 ? 'Healthy expense ratio' : expenseToIncomeRatio <= 0.6 ? 'Moderate expense burden' : 'High expense burden'
+        },
+        { 
+          feature: 'Loan Enquiries', 
+          value: loanEnquiries, 
+          shap: loanEnquiries <= 2 ? 0.15 : loanEnquiries <= 5 ? -0.1 : -0.3,
+          description: loanEnquiries <= 2 ? 'Few recent loan enquiries' : loanEnquiries <= 5 ? 'Moderate loan enquiries' : 'Many recent loan enquiries'
+        },
+        { 
+          feature: 'Business Age', 
+          value: `${businessAge} years`, 
+          shap: businessAge >= 3 ? 0.15 : businessAge >= 1 ? 0 : -0.2,
+          description: businessAge >= 3 ? 'Established business' : businessAge >= 1 ? 'New business' : 'Very new business'
+        }
+      ];
+    }
 
     return shapValues;
   };
@@ -175,29 +240,71 @@ const useHybridXGBoostSHAP = () => {
 };
 
 export default function RiskAssessmentSystem() {
-  const [stage, setStage] = useState<'input' | 'processing' | 'results'>('input');
+  const [stage, setStage] = useState<'employment' | 'input' | 'processing' | 'results'>('employment');
+  const [employmentType, setEmploymentType] = useState<'salaried' | 'self-employed' | null>(null);
+  const [businessType, setBusinessType] = useState<'trading' | 'manufacturing' | 'service' | null>(null);
   const [showDetailedExplanation, setShowDetailedExplanation] = useState(false);
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    age: '',
-    creditScore: 650,
-    monthlyIncome: '',
-    existingEMIs: '',
-    employmentYears: '',
-    savingsBalance: '',
-    loanAmount: '',
-    previousDefaults: '0',
-    accountAge: ''
-  });
+  const [formData, setFormData] = useState<FormData>({} as FormData);
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [processingStep, setProcessingStep] = useState(0);
   
   // Initialize the hybrid model
   const { calculateSHAPValues, calculateAdaptiveThreshold, predictWithXGBoost } = useHybridXGBoostSHAP();
 
+  const handleEmploymentSelect = (type: 'salaried' | 'self-employed') => {
+    setEmploymentType(type);
+    if (type === 'salaried') {
+      setFormData({
+        employmentType: 'salaried',
+        name: '',
+        age: '',
+        creditScore: 650,
+        monthlySalary: '',
+        housingType: 'rent',
+        officeRent: '',
+        otherFixedExpenses: '',
+        totalExpenditure: '',
+        loanEnquiries: '',
+        applicationDuration: '',
+        loanAmount: '',
+        previousDefaults: '0',
+        accountAge: ''
+      } as SalariedFormData);
+    } else {
+      setFormData({
+        employmentType: 'self-employed',
+        name: '',
+        age: '',
+        creditScore: 650,
+        businessType: 'trading',
+        grossRevenue: '',
+        expectedMargin: '',
+        businessRent: '',
+        utilitiesSalaries: '',
+        businessAge: '',
+        gstRegistered: 'yes',
+        loanEnquiries: '',
+        applicationPeriod: '',
+        loanAmount: '',
+        previousDefaults: '0',
+        accountAge: ''
+      } as SelfEmployedFormData);
+    }
+    setStage('input');
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'creditScore' ? Number(value) : value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleBusinessTypeChange = (type: 'trading' | 'manufacturing' | 'service') => {
+    setBusinessType(type);
+    setFormData(prev => ({
+      ...prev,
+      businessType: type,
+      expectedMargin: type === 'trading' ? '10' : type === 'manufacturing' ? '20' : '25'
+    }));
   };
 
   const runRiskAssessment = () => {
@@ -227,23 +334,11 @@ export default function RiskAssessmentSystem() {
   };
 
   const calculateRiskScore = () => {
+    // Calculate metrics
     const creditScore = formData.creditScore || 650;
-    const monthlyIncome = Number(formData.monthlyIncome) || 50000;
-    const existingEMIs = Number(formData.existingEMIs) || 0;
-    const employmentYears = Number(formData.employmentYears) || 1;
-    const savingsBalance = Number(formData.savingsBalance) || 0;
     const loanAmount = Number(formData.loanAmount) || 100000;
     const previousDefaults = parseInt(formData.previousDefaults) || 0;
     const accountAge = Number(formData.accountAge) || 1;
-
-    // Calculate metrics
-    const dtiRatio = (existingEMIs / (monthlyIncome || 1)); // prevent divide by zero
-    const savingsToLoanRatio = savingsBalance / (loanAmount || 1);
-    const incomeToLoanRatio = (monthlyIncome * 12) / (loanAmount || 1);
-
-    // Unused variables - we'll use void to acknowledge them
-    void incomeToLoanRatio;
-    void employmentYears;
 
     // --- Hybrid XGBoost-SHAP Implementation ---
     
@@ -255,7 +350,18 @@ export default function RiskAssessmentSystem() {
     
     // 3. Calculate adaptive threshold
     // In a real implementation, these would come from external systems
-    const marketConditions = dtiRatio > 0.5 ? 'high_risk' : dtiRatio < 0.3 ? 'low_risk' : 'normal';
+    let marketConditions = 'normal';
+    if (formData.employmentType === 'salaried') {
+      const totalExpenditure = Number((formData as SalariedFormData).totalExpenditure) || 0;
+      const monthlySalary = Number((formData as SalariedFormData).monthlySalary) || 50000;
+      const expenditureToIncomeRatio = totalExpenditure / (monthlySalary || 1);
+      marketConditions = expenditureToIncomeRatio > 0.7 ? 'high_risk' : expenditureToIncomeRatio < 0.4 ? 'low_risk' : 'normal';
+    } else {
+      const grossRevenue = Number((formData as SelfEmployedFormData).grossRevenue) || 100000;
+      const expectedMargin = Number((formData as SelfEmployedFormData).expectedMargin) || 20;
+      marketConditions = expectedMargin < 15 ? 'high_risk' : expectedMargin > 25 ? 'low_risk' : 'normal';
+    }
+    
     const customerSegment = creditScore >= 750 ? 'premium' : creditScore < 600 ? 'subprime' : 'standard';
     const regulatoryCaps = { minThreshold: 0.3, maxThreshold: 0.7 };
     
@@ -270,9 +376,16 @@ export default function RiskAssessmentSystem() {
     const fraudFlags = [];
     let fraudScore = 0;
 
-    if (loanAmount > monthlyIncome * 50 && monthlyIncome > 0) {
-      fraudFlags.push({ type: 'warning', message: 'Loan amount unusually high relative to income' });
-      fraudScore += 0.15;
+    let loanEnquiries = 0;
+    if (formData.employmentType === 'salaried') {
+      loanEnquiries = parseInt((formData as SalariedFormData).loanEnquiries) || 0;
+    } else {
+      loanEnquiries = parseInt((formData as SelfEmployedFormData).loanEnquiries) || 0;
+    }
+
+    if (loanAmount > 500000) {
+      fraudFlags.push({ type: 'warning', message: 'High loan amount requested' });
+      fraudScore += 0.1;
     }
     if (accountAge < 1) {
       fraudFlags.push({ type: 'warning', message: 'Very new bank account' });
@@ -282,9 +395,9 @@ export default function RiskAssessmentSystem() {
       fraudFlags.push({ type: 'danger', message: 'Multiple previous loan defaults detected' });
       fraudScore += 0.25;
     }
-    if (dtiRatio > 0.6) {
-      fraudFlags.push({ type: 'warning', message: 'Debt burden exceeds safe threshold' });
-      fraudScore += 0.1;
+    if (loanEnquiries > 5) {
+      fraudFlags.push({ type: 'warning', message: 'Many recent loan enquiries detected' });
+      fraudScore += 0.15;
     }
 
     // Adjust final probability for fraud
@@ -293,19 +406,46 @@ export default function RiskAssessmentSystem() {
     // Determine risk category
     let riskCategory, riskColor, riskIcon, recommendation, interestRate;
     
-    if (finalProbability >= 0.8) {
+    // Calculate risk score (0-100)
+    const riskScore = Math.round((1 - finalProbability) * 100);
+    
+    // Determine explainable reason
+    let explainableReason = "";
+    if (loanEnquiries > 5) {
+      explainableReason = "High risk due to numerous recent loan enquiries";
+    } else if (previousDefaults > 2) {
+      explainableReason = "High risk due to multiple previous defaults";
+    } else if (formData.employmentType === 'salaried') {
+      const totalExpenditure = Number((formData as SalariedFormData).totalExpenditure) || 0;
+      const monthlySalary = Number((formData as SalariedFormData).monthlySalary) || 50000;
+      const expenditureToIncomeRatio = totalExpenditure / (monthlySalary || 1);
+      if (expenditureToIncomeRatio > 0.7) {
+        explainableReason = "High risk due to high expenditure-to-income ratio";
+      } else {
+        explainableReason = "Risk factors within acceptable range";
+      }
+    } else {
+      const expectedMargin = Number((formData as SelfEmployedFormData).expectedMargin) || 20;
+      if (expectedMargin < 15) {
+        explainableReason = "High risk due to low business margin";
+      } else {
+        explainableReason = "Risk factors within acceptable range";
+      }
+    }
+    
+    if (riskScore >= 75) {
       riskCategory = 'Low Risk';
       riskColor = 'green';
       riskIcon = CheckCircle;
       recommendation = 'Approved - Standard interest rate';
       interestRate = 8.5;
-    } else if (finalProbability >= 0.6) {
+    } else if (riskScore >= 50) {
       riskCategory = 'Medium Risk';
       riskColor = 'yellow';
       riskIcon = AlertTriangle;
       recommendation = 'Approved with conditions - Slightly higher rate';
       interestRate = 10.5;
-    } else if (finalProbability >= 0.4) {
+    } else if (riskScore >= 25) {
       riskCategory = 'High Risk';
       riskColor = 'orange';
       riskIcon = AlertTriangle;
@@ -343,22 +483,26 @@ export default function RiskAssessmentSystem() {
       fraudFlags,
       fraudScore: (fraudScore * 100).toFixed(1),
       metrics: {
-        dtiRatio: (dtiRatio * 100).toFixed(1),
-        savingsToLoan: (savingsToLoanRatio * 100).toFixed(1),
-        incomeToLoan: incomeToLoanRatio.toFixed(2)
+        dtiRatio: "0", // Will be calculated properly in a real implementation
+        savingsToLoan: "0",
+        incomeToLoan: "0"
       },
       modelInfo: {
         marketConditions,
         customerSegment,
         regulatoryCaps
-      }
+      },
+      riskScore,
+      explainableReason
     });
 
     setStage('results');
   };
 
   const resetAssessment = () => {
-    setStage('input');
+    setStage('employment');
+    setEmploymentType(null);
+    setBusinessType(null);
     setAssessment(null);
     setProcessingStep(0);
   };
@@ -396,8 +540,72 @@ export default function RiskAssessmentSystem() {
           <p className="text-indigo-300">Advanced fraud detection and credit risk evaluation powered by Machine Learning</p>
         </div>
 
-        {/* Input Stage */}
-        {stage === 'input' && (
+        {/* Employment Type Selection */}
+        {stage === 'employment' && (
+          <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-8">
+            <h2 className="text-2xl font-semibold text-white mb-6 flex items-center gap-2">
+              <Briefcase className="w-6 h-6 text-indigo-400" />
+              Select Employment Type
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <button
+                onClick={() => handleEmploymentSelect('salaried')}
+                className="bg-gradient-to-r from-blue-500 to-indigo-500 p-8 rounded-xl border border-white/20 hover:from-blue-600 hover:to-indigo-600 transition-all flex flex-col items-center gap-4"
+              >
+                <User className="w-12 h-12 text-white" />
+                <h3 className="text-2xl font-bold text-white">Salaried Individual</h3>
+                <p className="text-indigo-200 text-center">Employed with regular monthly salary</p>
+              </button>
+              <button
+                onClick={() => handleEmploymentSelect('self-employed')}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 p-8 rounded-xl border border-white/20 hover:from-purple-600 hover:to-pink-600 transition-all flex flex-col items-center gap-4"
+              >
+                <Building className="w-12 h-12 text-white" />
+                <h3 className="text-2xl font-bold text-white">Self-Employed</h3>
+                <p className="text-indigo-200 text-center">Business owner or freelancer</p>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Self-Employed Business Type Selection */}
+        {stage === 'input' && employmentType === 'self-employed' && !businessType && (
+          <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-8">
+            <h2 className="text-2xl font-semibold text-white mb-6 flex items-center gap-2">
+              <Building className="w-6 h-6 text-indigo-400" />
+              Select Business Type
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <button
+                onClick={() => handleBusinessTypeChange('trading')}
+                className="bg-gradient-to-r from-blue-500 to-indigo-500 p-6 rounded-xl border border-white/20 hover:from-blue-600 hover:to-indigo-600 transition-all flex flex-col items-center gap-4"
+              >
+                <ShoppingCart className="w-10 h-10 text-white" />
+                <h3 className="text-xl font-bold text-white">Trading</h3>
+                <p className="text-indigo-200 text-center">Buying and selling goods</p>
+              </button>
+              <button
+                onClick={() => handleBusinessTypeChange('manufacturing')}
+                className="bg-gradient-to-r from-green-500 to-emerald-500 p-6 rounded-xl border border-white/20 hover:from-green-600 hover:to-emerald-600 transition-all flex flex-col items-center gap-4"
+              >
+                <Wrench className="w-10 h-10 text-white" />
+                <h3 className="text-xl font-bold text-white">Manufacturing</h3>
+                <p className="text-indigo-200 text-center">Production of goods</p>
+              </button>
+              <button
+                onClick={() => handleBusinessTypeChange('service')}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-xl border border-white/20 hover:from-purple-600 hover:to-pink-600 transition-all flex flex-col items-center gap-4"
+              >
+                <Briefcase className="w-10 h-10 text-white" />
+                <h3 className="text-xl font-bold text-white">Service</h3>
+                <p className="text-indigo-200 text-center">Providing professional services</p>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Input Stage - Salaried */}
+        {stage === 'input' && employmentType === 'salaried' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Personal Information */}
@@ -451,12 +659,12 @@ export default function RiskAssessmentSystem() {
                 <div>
                   <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
                     <DollarSign className="w-4 h-4" />
-                    Monthly Income (₹)
+                    Monthly Salary (₹)
                   </label>
                   <input
                     type="number"
-                    name="monthlyIncome"
-                    value={formData.monthlyIncome}
+                    name="monthlySalary"
+                    value={(formData as SalariedFormData).monthlySalary}
                     onChange={handleInputChange}
                     className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     placeholder="e.g., 75000"
@@ -464,23 +672,21 @@ export default function RiskAssessmentSystem() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
-                    <CreditCard className="w-4 h-4" />
-                    Existing EMIs per Month (₹)
-                  </label>
-                  <input
-                    type="number"
-                    name="existingEMIs"
-                    value={formData.existingEMIs}
+                  <label className="block text-sm font-medium text-indigo-200 mb-2">Housing Type</label>
+                  <select
+                    name="housingType"
+                    value={(formData as SalariedFormData).housingType}
                     onChange={handleInputChange}
-                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="e.g., 15000"
-                  />
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  >
+                    <option value="rent" className="bg-slate-800">On Rent</option>
+                    <option value="owned" className="bg-slate-800">Owned</option>
+                  </select>
                 </div>
               </div>
             </div>
 
-            {/* Financial Details */}
+            {/* Financial Details - Salaried */}
             <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">
               <h2 className="text-2xl font-semibold text-white mb-6 flex items-center gap-2">
                 <Briefcase className="w-6 h-6 text-indigo-400" />
@@ -490,31 +696,70 @@ export default function RiskAssessmentSystem() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Employment Duration (Years)
+                    <Home className="w-4 h-4" />
+                    Office Rent (₹) (if work-from-office)
                   </label>
                   <input
                     type="number"
-                    name="employmentYears"
-                    value={formData.employmentYears}
+                    name="officeRent"
+                    value={(formData as SalariedFormData).officeRent}
                     onChange={handleInputChange}
                     className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="e.g., 5"
+                    placeholder="e.g., 15000"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
                     <TrendingUp className="w-4 h-4" />
-                    Savings Balance (₹)
+                    Other Fixed Expenses (₹)
                   </label>
                   <input
                     type="number"
-                    name="savingsBalance"
-                    value={formData.savingsBalance}
+                    name="otherFixedExpenses"
+                    value={(formData as SalariedFormData).otherFixedExpenses}
                     onChange={handleInputChange}
                     className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="e.g., 150000"
+                    placeholder="e.g., 20000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Total Expenditure Estimate (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="totalExpenditure"
+                    value={(formData as SalariedFormData).totalExpenditure}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="e.g., 45000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2">Loan Enquiries in Last 3 Months</label>
+                  <input
+                    type="number"
+                    name="loanEnquiries"
+                    value={(formData as SalariedFormData).loanEnquiries}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="e.g., 2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2">Duration of Active Applications (Months)</label>
+                  <input
+                    type="number"
+                    name="applicationDuration"
+                    value={(formData as SalariedFormData).applicationDuration}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="e.g., 1"
                   />
                 </div>
 
@@ -532,31 +777,203 @@ export default function RiskAssessmentSystem() {
                     placeholder="e.g., 500000"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="lg:col-span-2">
+              <button
+                onClick={runRiskAssessment}
+                className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-5 rounded-xl font-semibold text-lg hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg flex items-center justify-center gap-3 group"
+              >
+                <Zap className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                Run AI Risk Assessment
+                <Shield className="w-6 h-6 group-hover:scale-110 transition-transform" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Input Stage - Self-Employed */}
+        {stage === 'input' && employmentType === 'self-employed' && businessType && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Personal Information */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">
+              <h2 className="text-2xl font-semibold text-white mb-6 flex items-center gap-2">
+                <User className="w-6 h-6 text-indigo-400" />
+                Customer Profile
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2">Full Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="Enter customer name"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-indigo-200 mb-2">Age</label>
+                    <input
+                      type="number"
+                      name="age"
+                      value={formData.age}
+                      onChange={handleInputChange}
+                      className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="e.g., 32"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-indigo-200 mb-2">Credit Score</label>
+                    <input
+                      type="range"
+                      name="creditScore"
+                      min="300"
+                      max="900"
+                      step="10"
+                      value={formData.creditScore}
+                      onChange={handleInputChange}
+                      className="w-full h-2 bg-indigo-300 rounded-lg appearance-none cursor-pointer accent-indigo-500 mt-3"
+                    />
+                    <div className="text-center text-2xl font-bold text-white mt-2">{formData.creditScore}</div>
+                  </div>
+                </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-indigo-200 mb-2">Previous Loan Defaults</label>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Gross Monthly Revenue (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="grossRevenue"
+                    value={(formData as SelfEmployedFormData).grossRevenue}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="e.g., 200000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2">Expected Margin</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      name="expectedMargin"
+                      min="5"
+                      max="40"
+                      step="1"
+                      value={(formData as SelfEmployedFormData).expectedMargin}
+                      onChange={handleInputChange}
+                      className="flex-1 h-2 bg-indigo-300 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                    <div className="text-2xl font-bold text-white w-16">{(formData as SelfEmployedFormData).expectedMargin}%</div>
+                  </div>
+                  <p className="text-indigo-300 text-sm mt-2">
+                    {businessType === 'trading' 
+                      ? 'Typical range: 8-12%' 
+                      : businessType === 'manufacturing' 
+                      ? 'Typical range: 15-25%' 
+                      : 'Typical range: 20-35%'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Details - Self-Employed */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">
+              <h2 className="text-2xl font-semibold text-white mb-6 flex items-center gap-2">
+                <Briefcase className="w-6 h-6 text-indigo-400" />
+                Business Financials
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
+                    <Building className="w-4 h-4" />
+                    Business Rent (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="businessRent"
+                    value={(formData as SelfEmployedFormData).businessRent}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="e.g., 25000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Utilities + Salaries Paid (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="utilitiesSalaries"
+                    value={(formData as SelfEmployedFormData).utilitiesSalaries}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="e.g., 50000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2">Business Age (Years)</label>
+                  <input
+                    type="number"
+                    name="businessAge"
+                    value={(formData as SelfEmployedFormData).businessAge}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="e.g., 3"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2">GST Registered</label>
                   <select
-                    name="previousDefaults"
-                    value={formData.previousDefaults}
+                    name="gstRegistered"
+                    value={(formData as SelfEmployedFormData).gstRegistered}
                     onChange={handleInputChange}
                     className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   >
-                    <option value="0" className="bg-slate-800">0 - Clean Record</option>
-                    <option value="1" className="bg-slate-800">1 - One Default</option>
-                    <option value="2" className="bg-slate-800">2 - Two Defaults</option>
-                    <option value="3" className="bg-slate-800">3+ - Multiple Defaults</option>
+                    <option value="yes" className="bg-slate-800">Yes</option>
+                    <option value="no" className="bg-slate-800">No</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-indigo-200 mb-2">Bank Account Age (Years)</label>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2">Loan Enquiries in Last 3 Months</label>
                   <input
                     type="number"
-                    name="accountAge"
-                    value={formData.accountAge}
+                    name="loanEnquiries"
+                    value={(formData as SelfEmployedFormData).loanEnquiries}
                     onChange={handleInputChange}
                     className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="e.g., 3"
+                    placeholder="e.g., 1"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Requested Loan Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="loanAmount"
+                    value={formData.loanAmount}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="e.g., 500000"
                   />
                 </div>
               </div>
@@ -593,7 +1010,7 @@ export default function RiskAssessmentSystem() {
                 {processingSteps.map((step, index) => {
                   const StepIcon = step.icon;
                   const isComplete = index < processingStep;
-                  const isCurrent = index === processingStep; // Fixed logic to highlight current step
+                  const isCurrent = index === processingStep;
 
                   return (
                     <div
@@ -635,11 +1052,14 @@ export default function RiskAssessmentSystem() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <p className="text-white/80 mb-2">Risk Score</p>
+                  <p className="text-5xl font-bold text-white">{assessment.riskScore}/100</p>
+                </div>
                 <div className="text-center">
                   <p className="text-white/80 mb-2">Risk Probability</p>
-                  <p className="text-5xl font-bold text-white">{assessment.finalProbability}%</p>
-                  <p className="text-white/80 mt-1">XGBoost Model Prediction</p>
+                  <p className="text-3xl font-bold text-white">{assessment.finalProbability}%</p>
                 </div>
                 <div className="text-center">
                   <p className="text-white/80 mb-2">Risk Category</p>
@@ -647,7 +1067,7 @@ export default function RiskAssessmentSystem() {
                 </div>
                 <div className="text-center">
                   <p className="text-white/80 mb-2">Recommended Rate</p>
-                  <p className="text-5xl font-bold text-white">
+                  <p className="text-3xl font-bold text-white">
                     {assessment.interestRate ? `${assessment.interestRate}%` : 'N/A'}
                   </p>
                   {assessment.interestRate && <p className="text-white/80 mt-1">per annum</p>}
@@ -658,6 +1078,9 @@ export default function RiskAssessmentSystem() {
                 <p className="text-white font-medium flex items-center gap-2">
                   <Eye className="w-5 h-5" />
                   {assessment.recommendation}
+                </p>
+                <p className="text-indigo-200 text-sm mt-2">
+                  {assessment.explainableReason}
                 </p>
                 <p className="text-indigo-200 text-sm mt-2">
                   Threshold dynamically set to {assessment.adaptiveThreshold}% due to {assessment.modelInfo.marketConditions.replace('_', ' ')} market conditions
@@ -736,36 +1159,6 @@ export default function RiskAssessmentSystem() {
               </div>
             </div>
 
-            {/* Financial Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <Percent className="w-6 h-6 text-purple-400" />
-                  <h4 className="text-white font-semibold">DTI Ratio</h4>
-                </div>
-                <p className="text-3xl font-bold text-white">{assessment.metrics.dtiRatio}%</p>
-                <p className="text-purple-300 text-sm mt-2">Debt-to-Income ratio</p>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <TrendingUp className="w-6 h-6 text-cyan-400" />
-                  <h4 className="text-white font-semibold">Savings Coverage</h4>
-                </div>
-                <p className="text-3xl font-bold text-white">{assessment.metrics.savingsToLoan}%</p>
-                <p className="text-cyan-300 text-sm mt-2">Of loan amount</p>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <DollarSign className="w-6 h-6 text-green-400" />
-                  <h4 className="text-white font-semibold">Income Multiplier</h4>
-                </div>
-                <p className="text-3xl font-bold text-white">{assessment.metrics.incomeToLoan}x</p>
-                <p className="text-green-300 text-sm mt-2">Annual income vs loan</p>
-              </div>
-            </div>
-
             {/* Detailed Explanation Button */}
             <div className="flex justify-center">
               <button
@@ -806,25 +1199,47 @@ export default function RiskAssessmentSystem() {
                         <p className="text-2xl font-bold text-white">{formData.creditScore}</p>
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
-                        <p className="text-indigo-300 text-sm mb-1">Monthly Income</p>
-                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.monthlyIncome).toLocaleString()}</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
                         <p className="text-indigo-300 text-sm mb-1">Loan Amount</p>
                         <p className="text-2xl font-bold text-white">₹{parseInt(formData.loanAmount).toLocaleString()}</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <p className="text-indigo-300 text-sm mb-1">Employment Years</p>
-                        <p className="text-2xl font-bold text-white">{formData.employmentYears}</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <p className="text-indigo-300 text-sm mb-1">Savings Balance</p>
-                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.savingsBalance).toLocaleString()}</p>
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
                         <p className="text-indigo-300 text-sm mb-1">Previous Defaults</p>
                         <p className="text-2xl font-bold text-white">{formData.previousDefaults}</p>
                       </div>
+                      
+                      {employmentType === 'salaried' && (
+                        <>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-indigo-300 text-sm mb-1">Monthly Salary</p>
+                            <p className="text-2xl font-bold text-white">₹{parseInt((formData as SalariedFormData).monthlySalary).toLocaleString()}</p>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-indigo-300 text-sm mb-1">Total Expenditure</p>
+                            <p className="text-2xl font-bold text-white">₹{parseInt((formData as SalariedFormData).totalExpenditure).toLocaleString()}</p>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-indigo-300 text-sm mb-1">Loan Enquiries</p>
+                            <p className="text-2xl font-bold text-white">{(formData as SalariedFormData).loanEnquiries}</p>
+                          </div>
+                        </>
+                      )}
+                      
+                      {employmentType === 'self-employed' && (
+                        <>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-indigo-300 text-sm mb-1">Gross Revenue</p>
+                            <p className="text-2xl font-bold text-white">₹{parseInt((formData as SelfEmployedFormData).grossRevenue).toLocaleString()}</p>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-indigo-300 text-sm mb-1">Business Margin</p>
+                            <p className="text-2xl font-bold text-white">{(formData as SelfEmployedFormData).expectedMargin}%</p>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <p className="text-indigo-300 text-sm mb-1">Business Age</p>
+                            <p className="text-2xl font-bold text-white">{(formData as SelfEmployedFormData).businessAge} years</p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -942,4 +1357,3 @@ export default function RiskAssessmentSystem() {
     </div>
   );
 }
-
