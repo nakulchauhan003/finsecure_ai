@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingDown, TrendingUp, RefreshCw, Zap, DollarSign, Award, Shield, Activity, Percent, BarChart3, ArrowRight, CheckCircle, AlertCircle, Sparkles, Clock, Target, Brain, LineChart, Bell, FileText, X, User } from 'lucide-react';
+import { TrendingDown, TrendingUp, RefreshCw, Zap, DollarSign, Award, Shield, Activity, Percent, BarChart3, CheckCircle, Sparkles, Clock, Target, Brain, LineChart, Bell, FileText, X, User } from 'lucide-react';
+// Import the Alpha Vantage service
+import { fetchMarketData } from '../../services/alphaVantage';
 
 export default function InterestRateOptimizer() {
-  const [stage, setStage] = useState('input'); // input, optimizing, results
+  const [stage, setStage] = useState<'input' | 'optimizing' | 'results'>('input');
   const [showDetailedExplanation, setShowDetailedExplanation] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -10,8 +12,8 @@ export default function InterestRateOptimizer() {
     loanAmount: 500000,
     monthlyIncome: 75000,
     existingEMIs: 15000,
-    employmentType: 'salaried',
-    repaymentHistory: 'excellent',
+    employmentType: 'salaried' as 'salaried' | 'business' | 'professional',
+    repaymentHistory: 'excellent' as 'excellent' | 'good' | 'poor',
     hasInvestments: false,
     customerTenure: 2
   });
@@ -20,11 +22,39 @@ export default function InterestRateOptimizer() {
     repoRate: 6.5,
     inflation: 4.2,
     competitorAvgRate: 9.2,
-    bankLiquidity: 'high',
-    marketTrend: 'stable'
+    bankLiquidity: 'high' as 'high' | 'medium' | 'low',
+    marketTrend: 'stable' as 'bullish' | 'stable' | 'bearish'
   });
 
-  const [optimization, setOptimization] = useState(null);
+  // Update the interface to properly type the features
+  interface Feature {
+    name: string;
+    value: string | number;
+    impact: string;
+    contribution: string;
+    weight: number;
+  }
+
+  interface OptimizationResult {
+    optimizedRate: string;
+    minRate: string;
+    maxRate: string;
+    confidence: string;
+    baseMarketRate: string;
+    riskPremium: string;
+    loyaltyDiscount: string;
+    investmentBonus: string;
+    savingsPerMonth: string;
+    savingsPerYear: string;
+    competitorRate: string;
+    riskScore: string;
+    features: Feature[];
+    explanations: string[];
+    monthlyEMI: string;
+    isUpdate: boolean;
+  }
+
+  const [optimization, setOptimization] = useState<OptimizationResult | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateCount, setUpdateCount] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
@@ -33,45 +63,52 @@ export default function InterestRateOptimizer() {
   useEffect(() => {
     if (stage === 'results' && optimization) {
       const interval = setInterval(() => {
-        simulateMarketUpdate();
+        updateMarketDataRealTime();
       }, 8000);
       return () => clearInterval(interval);
     }
   }, [stage, optimization]);
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type, checked } = e.target as HTMLInputElement;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
   };
 
-  const handleMarketChange = (e) => {
+  const handleMarketChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setMarketData(prev => ({ ...prev, [name]: value }));
   };
 
-  const simulateMarketUpdate = () => {
+  // Use the fetchMarketData function to get real market data
+  const updateMarketData = async () => {
+    try {
+      const marketData = await fetchMarketData();
+      setMarketData(prev => ({
+        ...prev,
+        repoRate: marketData.repoRate,
+        inflation: marketData.inflation
+      }));
+    } catch (error) {
+      console.error('Error fetching market data:', error);
+    }
+  };
+
+  // Replace the simulateMarketUpdate function with one that uses real data
+  const updateMarketDataRealTime = () => {
     setIsUpdating(true);
     
-    // Simulate small market fluctuations
-    const repoChange = (Math.random() - 0.5) * 0.2;
-    const inflationChange = (Math.random() - 0.5) * 0.1;
-    
-    setMarketData(prev => ({
-      ...prev,
-      repoRate: Math.max(5.0, Math.min(8.0, prev.repoRate + repoChange)),
-      inflation: Math.max(3.0, Math.min(6.0, prev.inflation + inflationChange))
-    }));
-
-    setTimeout(() => {
-      calculateOptimizedRate(true);
-      setIsUpdating(false);
-      setUpdateCount(prev => prev + 1);
-      setShowNotification(true);
-      setTimeout(() => setShowNotification(false), 3000);
-    }, 1500);
+    updateMarketData().then(() => {
+      setTimeout(() => {
+        calculateOptimizedRate(true);
+        setIsUpdating(false);
+        setUpdateCount(prev => prev + 1);
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 3000);
+      }, 1500);
+    });
   };
 
   const runOptimization = () => {
@@ -81,13 +118,12 @@ export default function InterestRateOptimizer() {
     }, 2500);
   };
 
-  const calculateOptimizedRate = (isAutoUpdate) => {
+  const calculateOptimizedRate = (isAutoUpdate: boolean) => {
     // Step 1: Normalize customer data
-    const creditScoreNorm = Math.min(Math.max((parseFloat(formData.creditScore) - 300) / 600, 0), 1);
-    const incomeNorm = Math.min(parseFloat(formData.monthlyIncome) / 200000, 1);
-    const dtiRatio = parseFloat(formData.existingEMIs) / parseFloat(formData.monthlyIncome);
+    const creditScoreNorm = Math.min(Math.max((formData.creditScore - 300) / 600, 0), 1);
+    const incomeNorm = Math.min(formData.monthlyIncome / 200000, 1);
+    const dtiRatio = formData.existingEMIs / formData.monthlyIncome;
     const dtiNorm = Math.max(1 - (dtiRatio / 0.5), 0);
-    const loanToIncomeRatio = parseFloat(formData.loanAmount) / (parseFloat(formData.monthlyIncome) * 12);
 
     // Step 2: Calculate risk score
     const riskScore = (
@@ -98,17 +134,17 @@ export default function InterestRateOptimizer() {
     );
 
     // Step 3: Calculate base rate from market data
-    const baseMarketRate = parseFloat(marketData.repoRate) + 1.5; // Base margin above repo rate
+    const baseMarketRate = marketData.repoRate + 1.5; // Base margin above repo rate
     
     // Step 4: Risk premium adjustment
     const riskPremium = (1 - riskScore) * 3; // 0-3% based on risk
 
     // Step 5: Market adjustment
-    const inflationAdjustment = (parseFloat(marketData.inflation) - 4) * 0.1;
-    const competitorAdjustment = (parseFloat(marketData.competitorAvgRate) - baseMarketRate) * 0.3;
+    const inflationAdjustment = (marketData.inflation - 4) * 0.1;
+    const competitorAdjustment = (marketData.competitorAvgRate - baseMarketRate) * 0.3;
 
     // Step 6: Customer loyalty discount
-    const loyaltyDiscount = Math.min(parseFloat(formData.customerTenure) * 0.1, 0.5);
+    const loyaltyDiscount = Math.min(formData.customerTenure * 0.1, 0.5);
     
     // Step 7: Investment integration bonus
     const investmentBonus = formData.hasInvestments ? 0.25 : 0;
@@ -132,17 +168,17 @@ export default function InterestRateOptimizer() {
     const confidence = 85 + (riskScore * 12);
 
     // Calculate savings vs competitor
-    const competitorRate = parseFloat(marketData.competitorAvgRate);
-    const savingsPerMonth = (parseFloat(formData.loanAmount) * (competitorRate - optimizedRate) / 100) / 12;
+    const competitorRate = marketData.competitorAvgRate;
+    const savingsPerMonth = (formData.loanAmount * (competitorRate - optimizedRate) / 100) / 12;
     const savingsPerYear = savingsPerMonth * 12;
 
-    // Feature contributions
-    const features = [
+    // Update the features array to ensure contribution is always a string
+    const features: Feature[] = [
       { 
         name: 'Credit Score', 
         value: formData.creditScore,
         impact: creditScoreNorm > 0.7 ? 'Positive' : creditScoreNorm > 0.5 ? 'Neutral' : 'Negative',
-        contribution: -((creditScoreNorm - 0.5) * 2).toFixed(2),
+        contribution: (-((creditScoreNorm - 0.5) * 2)).toFixed(2),
         weight: 35
       },
       { 
@@ -156,7 +192,7 @@ export default function InterestRateOptimizer() {
         name: 'Repo Rate', 
         value: `${marketData.repoRate}%`,
         impact: marketData.repoRate < 6.5 ? 'Positive' : 'Neutral',
-        contribution: (parseFloat(marketData.repoRate) - 6.0).toFixed(2),
+        contribution: (marketData.repoRate - 6.0).toFixed(2),
         weight: 20
       },
       { 
@@ -208,7 +244,7 @@ export default function InterestRateOptimizer() {
       riskScore: (riskScore * 100).toFixed(1),
       features,
       explanations,
-      monthlyEMI: calculateEMI(parseFloat(formData.loanAmount), optimizedRate, 10),
+      monthlyEMI: calculateEMI(formData.loanAmount, parseFloat(optimizedRate.toFixed(2)), 10),
       isUpdate: isAutoUpdate
     };
 
@@ -218,7 +254,7 @@ export default function InterestRateOptimizer() {
     }
   };
 
-  const calculateEMI = (principal, rate, years) => {
+  const calculateEMI = (principal: number, rate: number, years: number) => {
     const monthlyRate = rate / (12 * 100);
     const months = years * 12;
     const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, months) / (Math.pow(1 + monthlyRate, months) - 1);
@@ -231,13 +267,13 @@ export default function InterestRateOptimizer() {
     setUpdateCount(0);
   };
 
-  const getImpactColor = (impact) => {
+  const getImpactColor = (impact: string) => {
     if (impact === 'Positive') return 'text-green-400';
     if (impact === 'Negative') return 'text-red-400';
     return 'text-yellow-400';
   };
 
-  const getImpactIcon = (impact) => {
+  const getImpactIcon = (impact: string) => {
     if (impact === 'Positive') return TrendingDown;
     if (impact === 'Negative') return TrendingUp;
     return Activity;
@@ -664,7 +700,7 @@ export default function InterestRateOptimizer() {
               </h3>
 
               <div className="space-y-3 mb-6">
-                {optimization.explanations.map((explanation, index) => (
+                {optimization.explanations.map((explanation: string, index: number) => (
                   <div key={index} className="flex items-start gap-3 p-4 bg-white/5 rounded-lg border border-white/10">
                     <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
                     <p className="text-white">{explanation}</p>
@@ -716,7 +752,7 @@ export default function InterestRateOptimizer() {
               </h3>
 
               <div className="space-y-4">
-                {optimization.features.map((feature, index) => {
+                {optimization.features.map((feature: Feature, index: number) => {
                   const ImpactIcon = getImpactIcon(feature.impact);
                   return (
                     <div key={index} className="bg-white/5 rounded-lg p-4 border border-white/10">
@@ -834,7 +870,7 @@ export default function InterestRateOptimizer() {
                       stroke="#6366f1"
                       strokeWidth="12"
                       fill="none"
-                      strokeDasharray={`${(optimization.riskScore / 100) * 352} 352`}
+                      strokeDasharray={`${(parseFloat(optimization.riskScore) / 100) * 352} 352`}
                       className="transition-all duration-1000"
                     />
                   </svg>
@@ -895,15 +931,15 @@ export default function InterestRateOptimizer() {
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
                         <p className="text-purple-300 text-sm mb-1">Loan Amount</p>
-                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.loanAmount).toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-white">₹{formData.loanAmount.toLocaleString()}</p>
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
                         <p className="text-purple-300 text-sm mb-1">Monthly Income</p>
-                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.monthlyIncome).toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-white">₹{formData.monthlyIncome.toLocaleString()}</p>
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
                         <p className="text-purple-300 text-sm mb-1">Existing EMIs</p>
-                        <p className="text-2xl font-bold text-white">₹{parseInt(formData.existingEMIs).toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-white">₹{formData.existingEMIs.toLocaleString()}</p>
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
                         <p className="text-purple-300 text-sm mb-1">Employment Type</p>
