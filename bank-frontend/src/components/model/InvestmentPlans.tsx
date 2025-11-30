@@ -1,17 +1,15 @@
 import { useState, useEffect, ReactNode, useMemo } from 'react';
 // Import Alpha Vantage service
-import { fetchLiveMarketData as fetchAlphaVantageData } from '../../services/alphaVantage';
+import { fetchLiveMarketData as fetchMarketStackData } from '../../services/marketstack';
 import { 
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, 
-  CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ScatterChart, 
-  Scatter, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
-  ReferenceLine
+  Line, PieChart, Pie, Cell, XAxis, YAxis, 
+  CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from 'recharts';
 import { 
-  TrendingUp, Activity, DollarSign, Info, ArrowUpRight, Sparkles, 
-  Brain, Shield, Briefcase, User, RefreshCw, Calculator, Lock, 
+  TrendingUp, Activity, DollarSign, ArrowUpRight, Sparkles, 
+  Brain, Shield, User, Calculator, Lock, 
   PieChart as PieIcon, Target, CheckCircle, Zap, Clock, Crown, 
-  BarChart3, Calendar, Award, Users, Building2, Landmark, Wallet,
+  Landmark,
   MessageCircle 
 } from 'lucide-react';
 
@@ -65,14 +63,7 @@ interface CurrentInvestment {
   taxLiability?: number;
 }
 
-interface PortfolioSimulation {
-  assets: AssetOption[];
-  totalInvestment: number;
-  expectedReturn: number;
-  riskScore: number;
-  volatility: number;
-  explanation: string;
-}
+
 
 interface Insight {
   type: string;
@@ -84,11 +75,19 @@ interface Insight {
   action?: string;
 }
 
+interface MarketStockData {
+  symbol: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  lastUpdated: string;
+}
+
+
+
 interface LiveMarketData {
-  mutualFunds: any[];
-  goldBonds: any[];
-  stocks: any[];
-  fixedDeposits: any[];
+  stocks: MarketStockData[];
+  indices: MarketStockData[];
   lastUpdated: string;
 }
 
@@ -359,7 +358,7 @@ const InvestmentPlansDashboard = () => {
   const [selectedPlan, setSelectedPlan] = useState<AssetOption | null>(null);
   const [investAmount, setInvestAmount] = useState<number>(0);
   const [showModal, setShowModal] = useState<boolean>(false);
-  const [simulatedData, setSimulatedData] = useState<any[]>([]);
+  const [simulatedData, setSimulatedData] = useState<{ month: number; portfolio: number; bankSavings: number }[]>([]);
   const [liveData, setLiveData] = useState<LiveMarketData | null>(null);
   const [isLoadingLiveData, setIsLoadingLiveData] = useState<boolean>(false);
 
@@ -367,6 +366,7 @@ const InvestmentPlansDashboard = () => {
   const [aiChatOpen, setAiChatOpen] = useState<boolean>(false);
   const [chatMessages, setChatMessages] = useState<AIChatMessage[]>([]);
   const [userMessage, setUserMessage] = useState<string>('');
+  
 
   // --- Effects ---
 
@@ -401,14 +401,14 @@ const InvestmentPlansDashboard = () => {
   // Generate AI Insights
   useEffect(() => {
     if (profileSetup) {
-      const insights = [
+      const insights: Insight[] = [
         {
           type: 'recommendation',
           icon: <Sparkles className="w-5 h-5" />,
           title: 'Portfolio Rebalancing Suggested',
           message: 'Your equity exposure is optimal. Consider adding 15% to debt funds for better stability.',
           confidence: 0.87,
-          priority: 'medium',
+          priority: 'medium' as const,
           action: 'Rebalance Now'
         },
         {
@@ -417,7 +417,7 @@ const InvestmentPlansDashboard = () => {
           title: 'Strong Performance Detected',
           message: 'Your Nifty 50 Index Fund has outperformed market by 3.2% this quarter.',
           confidence: 0.95,
-          priority: 'high',
+          priority: 'high' as const,
           action: 'View Details'
         },
         {
@@ -426,7 +426,7 @@ const InvestmentPlansDashboard = () => {
           title: 'SIP Increase Opportunity',
           message: 'Based on your income growth, you can increase SIP by ₹2,000/month.',
           confidence: 0.82,
-          priority: 'low',
+          priority: 'low' as const,
           action: 'Increase SIP'
         },
         {
@@ -435,7 +435,7 @@ const InvestmentPlansDashboard = () => {
           title: 'Tax Saving Deadline Approaching',
           message: 'Consider ELSS funds to save up to ₹46,800 in taxes under Section 80C.',
           confidence: 0.91,
-          priority: 'high',
+          priority: 'high' as const,
           action: 'Explore ELSS'
         }
       ];
@@ -449,32 +449,27 @@ const InvestmentPlansDashboard = () => {
     setIsLoadingLiveData(true);
     try {
       // Use Alpha Vantage API service
-      const liveData = await fetchAlphaVantageData();
+      const liveData = await fetchMarketStackData();
       
       setLiveData({
-        mutualFunds: liveData.mutualFunds,
-        goldBonds: liveData.goldBonds,
         stocks: liveData.stocks,
-        fixedDeposits: liveData.fixedDeposits,
+        indices: liveData.indices,
         lastUpdated: liveData.lastUpdated
       });
     } catch (error) {
-      console.error('Error fetching live data from Alpha Vantage:', error);
+      console.error('Error fetching live data from MarketStack:', error);
       // Fallback to mock data in case of API failure
       setLiveData({
-        mutualFunds: [
-          { id: 1, name: "Nifty 50 Index Fund", nav: 145.20, change: 1.2 },
-          { id: 2, name: "ELSS Tax Saver", nav: 89.45, change: 2.1 },
-        ],
-        goldBonds: [
-          { id: 1, name: "SGB 2024", price: 6250, change: 0.8 },
-        ],
         stocks: [
-          { id: 1, name: "RELIANCE", price: 2450, change: 1.5 },
-          { id: 2, name: "INFY", price: 1650, change: -0.8 },
+          { symbol: "RELIANCE.XBOM", price: 2450, change: 1.5, changePercent: 0.06, lastUpdated: new Date().toISOString() },
+          { symbol: "TCS.XBOM", price: 3850, change: -0.8, changePercent: -0.02, lastUpdated: new Date().toISOString() },
+          { symbol: "INFY.XBOM", price: 1650, change: 1.2, changePercent: 0.07, lastUpdated: new Date().toISOString() },
+          { symbol: "HDFCBANK.XBOM", price: 1550, change: 0.7, changePercent: 0.04, lastUpdated: new Date().toISOString() },
+          { symbol: "ICICIBANK.XBOM", price: 1050, change: -0.3, changePercent: -0.01, lastUpdated: new Date().toISOString() }
         ],
-        fixedDeposits: [
-          { id: 1, name: "SBI FD", rate: 6.5, change: 0 },
+        indices: [
+          { symbol: "BSE.BSESN", price: 72500, change: 0.5, changePercent: 0.01, lastUpdated: new Date().toISOString() },
+          { symbol: "NSE.NIFTY50", price: 22500, change: 0.3, changePercent: 0.01, lastUpdated: new Date().toISOString() }
         ],
         lastUpdated: new Date().toISOString()
       });
@@ -669,7 +664,7 @@ This aligns with your ${userProfile.investmentHorizon}-year horizon.`,
                 {['low', 'medium', 'high'].map((r) => (
                   <button
                     key={r}
-                    onClick={() => setUserProfile({...userProfile, riskAppetite: r as any})}
+                    onClick={() => setUserProfile({...userProfile, riskAppetite: r as 'low' | 'medium' | 'high'})}
                     className={`flex-1 p-4 rounded-xl capitalize border transition-all ${
                       userProfile.riskAppetite === r
                       ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-transparent' 
@@ -875,70 +870,93 @@ This aligns with your ${userProfile.investmentHorizon}-year horizon.`,
                   >
                     {isLoadingLiveData ? 'Refreshing...' : 'Refresh'}
                   </button>
+                  {liveData && (
+                    <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">
+                      Demo Data
+                    </span>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Mutual Funds */}
-                <div className="bg-white/5 rounded-xl p-4">
-                  <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                    <PieIcon className="w-5 h-5 text-blue-400" />
-                    Mutual Funds
-                  </h4>
-                  <div className="space-y-2">
-                    {liveData?.mutualFunds.slice(0, 3).map((fund) => (
-                      <div key={fund.id} className="flex justify-between items-center py-2 border-b border-white/10">
-                        <div>
-                          <p className="text-white text-sm font-medium">{fund.name}</p>
-                          <p className="text-gray-400 text-xs">NAV: ₹{fund.nav}</p>
-                        </div>
-                        <span className={`text-sm font-semibold ${fund.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {fund.change >= 0 ? '+' : ''}{fund.change}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Gold Bonds */}
-                <div className="bg-white/5 rounded-xl p-4">
-                  <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                    <Crown className="w-5 h-5 text-yellow-400" />
-                    Gold Bonds
-                  </h4>
-                  <div className="space-y-2">
-                    {liveData?.goldBonds.slice(0, 3).map((bond) => (
-                      <div key={bond.id} className="flex justify-between items-center py-2 border-b border-white/10">
-                        <div>
-                          <p className="text-white text-sm font-medium">{bond.name}</p>
-                          <p className="text-gray-400 text-xs">Price: ₹{bond.price}</p>
-                        </div>
-                        <span className={`text-sm font-semibold ${bond.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {bond.change >= 0 ? '+' : ''}{bond.change}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Stocks */}
+                {/* Popular Stocks */}
                 <div className="bg-white/5 rounded-xl p-4">
                   <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                     <Zap className="w-5 h-5 text-green-400" />
-                    Stocks
+                    Popular Stocks
                   </h4>
                   <div className="space-y-2">
-                    {liveData?.stocks.slice(0, 3).map((stock) => (
-                      <div key={stock.id} className="flex justify-between items-center py-2 border-b border-white/10">
-                        <div>
-                          <p className="text-white text-sm font-medium">{stock.name}</p>
-                          <p className="text-gray-400 text-xs">₹{stock.price}</p>
+                    {liveData && liveData.stocks.length > 0 ? (
+                      liveData.stocks.slice(0, 3).map((stock, index) => (
+                        <div key={index} className="flex justify-between items-center py-2 border-b border-white/10">
+                          <div>
+                            <p className="text-white text-sm font-medium">{stock.symbol}</p>
+                            <p className="text-gray-400 text-xs">Price: ₹{stock.price.toFixed(2)}</p>
+                          </div>
+                          <span className={`text-sm font-semibold ${stock.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)}%
+                          </span>
                         </div>
-                        <span className={`text-sm font-semibold ${stock.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {stock.change >= 0 ? '+' : ''}{stock.change}%
-                        </span>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-gray-400">
+                        <p>No stock data available - showing demo data instead</p>
                       </div>
-                    ))}
+                    )}
+                  </div>
+                </div>
+
+                {/* Market Indices */}
+                <div className="bg-white/5 rounded-xl p-4">
+                  <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-yellow-400" />
+                    Market Indices
+                  </h4>
+                  <div className="space-y-2">
+                    {liveData && liveData.indices.length > 0 ? (
+                      liveData.indices.slice(0, 3).map((index, idx) => (
+                        <div key={idx} className="flex justify-between items-center py-2 border-b border-white/10">
+                          <div>
+                            <p className="text-white text-sm font-medium">{index.symbol}</p>
+                            <p className="text-gray-400 text-xs">Price: ₹{index.price.toFixed(2)}</p>
+                          </div>
+                          <span className={`text-sm font-semibold ${index.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {index.change >= 0 ? '+' : ''}{index.change.toFixed(2)}%
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-gray-400">
+                        <p>No index data available - showing demo data instead</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* More Stocks */}
+                <div className="bg-white/5 rounded-xl p-4">
+                  <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-green-400" />
+                    More Stocks
+                  </h4>
+                  <div className="space-y-2">
+                    {liveData && liveData.stocks.length > 3 ? (
+                      liveData.stocks.slice(3, 6).map((stock, index) => (
+                        <div key={index} className="flex justify-between items-center py-2 border-b border-white/10">
+                          <div>
+                            <p className="text-white text-sm font-medium">{stock.symbol}</p>
+                            <p className="text-gray-400 text-xs">₹{stock.price.toFixed(2)}</p>
+                          </div>
+                          <span className={`text-sm font-semibold ${stock.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)}%
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-gray-400">
+                        <p>No additional stock data - showing demo data instead</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -949,17 +967,10 @@ This aligns with your ${userProfile.investmentHorizon}-year horizon.`,
                     Fixed Deposits
                   </h4>
                   <div className="space-y-2">
-                    {liveData?.fixedDeposits.slice(0, 3).map((fd) => (
-                      <div key={fd.id} className="flex justify-between items-center py-2 border-b border-white/10">
-                        <div>
-                          <p className="text-white text-sm font-medium">{fd.name}</p>
-                          <p className="text-gray-400 text-xs">Rate: {fd.rate}%</p>
-                        </div>
-                        <span className="text-sm font-semibold text-blue-400">
-                          {fd.change >= 0 ? '+' : ''}{fd.change}%
-                        </span>
-                      </div>
-                    ))}
+                    {/* Fixed Deposits - Not available in MarketStack API */}
+                    <div className="text-center py-4 text-gray-400">
+                      <p>Fixed deposit data not available</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1411,7 +1422,7 @@ This aligns with your ${userProfile.investmentHorizon}-year horizon.`,
                 onClick={() => {
                   // Add investment logic here
                   setShowModal(false);
-                  setSuccessMessage(`Successfully invested ₹${investAmount.toLocaleString()} in ${selectedPlan.name}`);
+                  // setSuccessMessage(`Successfully invested ₹${investAmount.toLocaleString()} in ${selectedPlan.name}`);
                 }}
               >
                 Confirm Investment

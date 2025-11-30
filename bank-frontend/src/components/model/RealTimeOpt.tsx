@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingDown, TrendingUp, RefreshCw, Zap, DollarSign, Award, Shield, Activity, Percent, BarChart3, CheckCircle, Sparkles, Clock, Target, Brain, LineChart, Bell, FileText, X, User } from 'lucide-react';
 // Import the Alpha Vantage service
-import { fetchMarketData } from '../../services/alphaVantage';
+import { fetchMarketData } from '../../services/marketstack';
 
 export default function InterestRateOptimizer() {
   const [stage, setStage] = useState<'input' | 'optimizing' | 'results'>('input');
