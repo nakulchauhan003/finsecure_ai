@@ -1,6 +1,7 @@
 import { useState, useEffect, ReactNode, useMemo } from 'react';
 // Import Alpha Vantage service
 import { fetchLiveMarketData as fetchMarketStackData } from '../../services/marketstack';
+import { chatWithAdvisor, getInvestmentAdvice } from '../../utils/gemini';
 import { 
   Line, PieChart, Pie, Cell, XAxis, YAxis, 
   CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
@@ -440,7 +441,30 @@ const InvestmentPlansDashboard = () => {
         }
       ];
       setAiInsights(insights);
+
+      // Enhance with real Gemini AI insight
+      getInvestmentAdvice({
+        name: userProfile.name,
+        age: userProfile.age,
+        income: userProfile.income,
+        savings: userProfile.savings,
+        goal: userProfile.goal,
+        riskAppetite: userProfile.riskAppetite,
+        investmentHorizon: userProfile.investmentHorizon,
+      }).then(advice => {
+        const aiInsight: Insight = {
+          type: 'ai-recommendation',
+          icon: <Brain className="w-5 h-5" />,
+          title: 'Gemini AI Portfolio Strategy',
+          message: advice.recommendation + (advice.tips?.[0] ? ` Tip: ${advice.tips[0]}` : ''),
+          confidence: 0.93,
+          priority: 'high' as const,
+          action: `Expected ${advice.expectedReturn}% return`
+        };
+        setAiInsights(prev => [aiInsight, ...prev]);
+      }).catch(err => console.error('AI investment advice failed:', err));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileSetup]);
 
   // --- Helper Functions ---
@@ -533,22 +557,26 @@ const InvestmentPlansDashboard = () => {
     setChatMessages(prev => [...prev, userMessageObj]);
     setUserMessage('');
 
-    // Simulate AI response (Replace with actual Gemini API call)
-    setTimeout(() => {
+    try {
+      const context = `User profile: ${userProfile.name}, age ${userProfile.age}, income ₹${userProfile.income}, risk appetite: ${userProfile.riskAppetite}, goal: ${userProfile.goal}, horizon: ${userProfile.investmentHorizon} years. Portfolio value: ₹${calculateTotalValue().toLocaleString()}.`;
+      const response = await chatWithAdvisor(message, context);
       const aiResponse: AIChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        message: `Based on your profile (${userProfile.riskAppetite} risk, ${userProfile.goal} goal), I recommend considering a diversified portfolio. For your ₹${investAmount || 10000} investment, you could allocate:
-
-• 60% Equity Funds (Higher growth)
-• 30% Debt Funds (Stability)
-• 10% Gold (Hedge)
-
-This aligns with your ${userProfile.investmentHorizon}-year horizon.`,
+        message: response,
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiResponse]);
-    }, 1000);
+    } catch (err) {
+      console.error('AI chat failed:', err);
+      const fallback: AIChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        message: `Based on your profile (${userProfile.riskAppetite} risk, ${userProfile.goal} goal), I recommend considering a diversified portfolio. For your ₹${investAmount || 10000} investment, you could allocate:\n\n• 60% Equity Funds (Higher growth)\n• 30% Debt Funds (Stability)\n• 10% Gold (Hedge)\n\nThis aligns with your ${userProfile.investmentHorizon}-year horizon.`,
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, fallback]);
+    }
   };
 
   // --- Computed Values ---

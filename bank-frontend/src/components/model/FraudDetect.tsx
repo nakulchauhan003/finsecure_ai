@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, TrendingUp, Users, Activity, Shield } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, CheckCircle, XCircle, TrendingUp, Activity, Shield, Sparkles } from 'lucide-react';
+import { analyzeFraud, AIFraudAnalysis } from '../../utils/gemini';
 
 const FraudDetectionDashboard = () => {
   const [alerts, setAlerts] = useState([
@@ -42,27 +43,54 @@ const FraudDetectionDashboard = () => {
     accuracyRate: 94.2
   });
 
-  const [recentActivity, setRecentActivity] = useState([
+  const [recentActivity] = useState([
     { time: '2 min ago', event: 'High-risk application detected', severity: 'high' },
     { time: '15 min ago', event: 'Fraud case resolved - confirmed fraud', severity: 'medium' },
     { time: '28 min ago', event: 'False positive corrected', severity: 'low' },
     { time: '1 hour ago', event: 'Multiple device login flagged', severity: 'high' }
   ]);
 
-  const handleResolve = (id, decision) => {
+  const [aiAnalysis, setAiAnalysis] = useState<AIFraudAnalysis | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleDeepAnalysis = async () => {
+    setAiLoading(true);
+    setAiAnalysis(null);
+    try {
+      const alertData = alerts.filter(a => a.status === 'pending').map(a => ({
+        user: a.user,
+        type: a.type,
+        score: a.score,
+        reason: a.reason,
+        details: a.details,
+      }));
+      const result = await analyzeFraud({
+        pendingAlerts: alertData,
+        stats,
+        recentActivity,
+      });
+      setAiAnalysis(result);
+    } catch (err) {
+      console.error('AI fraud analysis failed:', err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleResolve = (id: number, decision: string) => {
     setAlerts(alerts.map(alert => 
       alert.id === id ? { ...alert, status: decision } : alert
     ));
     setStats(prev => ({ ...prev, resolvedToday: prev.resolvedToday + 1 }));
   };
 
-  const getSeverityColor = (score) => {
+  const getSeverityColor = (score: number) => {
     if (score >= 0.8) return 'bg-red-500';
     if (score >= 0.7) return 'bg-orange-500';
     return 'bg-yellow-500';
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status: string) => {
     if (status === 'approved') return 'bg-red-100 text-red-700';
     if (status === 'rejected') return 'bg-green-100 text-green-700';
     return 'bg-yellow-100 text-yellow-700';
@@ -231,6 +259,50 @@ const FraudDetectionDashboard = () => {
               </div>
             </div>
 
+            {/* Gemini AI Deep Analysis */}
+            <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-xl border border-purple-500/30 p-6">
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                Gemini AI Analysis
+              </h3>
+              <button
+                onClick={handleDeepAnalysis}
+                disabled={aiLoading}
+                className="w-full mb-4 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+              >
+                {aiLoading ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Analyzing...</>
+                ) : (
+                  <><Sparkles className="w-4 h-4" /> Run Deep Analysis</>
+                )}
+              </button>
+              {aiAnalysis ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-purple-200 text-sm">Fraud Score</span>
+                    <span className={`font-bold text-lg ${aiAnalysis.fraudScore >= 70 ? 'text-red-400' : aiAnalysis.fraudScore >= 40 ? 'text-yellow-400' : 'text-green-400'}`}>
+                      {aiAnalysis.fraudScore}/100
+                    </span>
+                  </div>
+                  <div className={`text-xs px-3 py-1.5 rounded ${aiAnalysis.isFraudulent ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300'}`}>
+                    {aiAnalysis.recommendation}
+                  </div>
+                  {aiAnalysis.patterns.slice(0, 3).map((p, i) => (
+                    <div key={i} className={`text-xs px-2 py-1 rounded ${
+                      p.severity === 'high' ? 'bg-red-500/10 text-red-300' :
+                      p.severity === 'medium' ? 'bg-yellow-500/10 text-yellow-300' :
+                      'bg-green-500/10 text-green-300'
+                    }`}>
+                      <strong>{p.type}:</strong> {p.description}
+                    </div>
+                  ))}
+                  <p className="text-purple-200 text-xs mt-2">{aiAnalysis.explanation}</p>
+                </div>
+              ) : (
+                <p className="text-purple-300 text-sm">Click above to run Gemini AI analysis on all pending alerts</p>
+              )}
+            </div>
+
             {/* Detection Methods */}
             <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">
               <h3 className="text-xl font-bold text-white mb-4">AI Models Active</h3>
@@ -249,6 +321,10 @@ const FraudDetectionDashboard = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-purple-200">Autoencoders</span>
+                  <span className="text-green-400 text-sm">●  Active</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-purple-200">Gemini 2.5 Flash</span>
                   <span className="text-green-400 text-sm">●  Active</span>
                 </div>
               </div>

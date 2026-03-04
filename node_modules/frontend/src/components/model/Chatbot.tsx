@@ -1,99 +1,17 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
-  Send, Bot, User, Mic, Loader2, 
+  Send, Bot, User, Mic,
   Search, ShieldCheck, Percent, UserCheck,
-  FileText, Briefcase, CheckCircle, XCircle, AlertCircle, ExternalLink
+  CheckCircle, XCircle, AlertCircle, ExternalLink
 } from 'lucide-react';
+import { chatWithAdvisor, askGeminiWithSearch, askGeminiJSON } from '../../utils/gemini';
 
 // --- API Helper Functions ---
 
 /**
- * A simple sleep utility for exponential backoff.
- * @param {number} ms Milliseconds to sleep
+ * Fetches structured bank data using Gemini API with Google Search.
  */
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-/**
- * Fetches data with exponential backoff.
- * @param {string} apiUrl The API endpoint to call
- * @param {object} payload The payload for the POST request
- * @param {number} maxRetries Maximum number of retries
- */
-async function fetchWithRetry(apiUrl, payload, maxRetries = 5) {
-  let attempt = 0;
-  let delay = 1000;
-
-  while (attempt < maxRetries) {
-    try {
-      const apiKey = "REDACTED_GOOGLE_API_KEY";
-      const urlWithKey = `${apiUrl}?key=${apiKey}`;
-
-      const response = await fetch(urlWithKey, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        return await response.json();
-      }
-
-      if (response.status === 429 || response.status >= 500) {
-        console.warn(`Attempt ${attempt + 1}: Received status ${response.status}. Retrying in ${delay}ms...`);
-        await sleep(delay);
-        delay *= 2;
-        attempt++;
-      } else {
-        console.error(`Attempt ${attempt + 1}: Received status ${response.status}.`);
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-    } catch (error) {
-      console.error(`Attempt ${attempt + 1}: Fetch error: ${error.message}`);
-      if (attempt + 1 >= maxRetries) {
-        throw error;
-      }
-      await sleep(delay);
-      delay *= 2;
-      attempt++;
-    }
-  }
-  throw new Error('API request failed after all retries');
-}
-
-/**
- * Parses the AI response to extract structured bank data.
- */
-function parseCompetitorResponse(responseText) {
-  // Try to find JSON in the response
-  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-  
-  if (jsonMatch) {
-    try {
-      return JSON.parse(jsonMatch[0]);
-    } catch (e) {
-      console.warn("Could not parse JSON from response");
-    }
-  }
-  
-  // Fallback: Create a simple structure from the text
-  return {
-    bankName: "Search Results",
-    products: [],
-    sourceURL: "#",
-    sourceTitle: "Multiple Sources",
-    rawText: responseText
-  };
-}
-
-/**
- * Fetches structured bank data using the Gemini API with Google Search.
- * @param {string} userQuery The user's question about bank rates.
- */
-async function fetchCompetitorData(userQuery) {
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
-
+async function fetchCompetitorData(userQuery: string) {
   const systemPrompt = `You are a specialized banking assistant. The user is asking about a bank's product, interest rate, or other financial data.
 Perform a Google Search to find the most current, publicly available information for the user's query.
 
@@ -111,61 +29,32 @@ Format your response as JSON with this structure:
   "sourceTitle": "Page title"
 }
 
-If no specific bank is mentioned, find the most relevant one (e.g., for "personal loan rates", find a major bank like SBI or HDFC).`;
-
-  const payload = {
-    contents: [{ 
-      parts: [{ text: userQuery }] 
-    }],
-    systemInstruction: {
-      parts: [{ text: systemPrompt }]
-    },
-    tools: [
-      { "googleSearch": {} }
-    ]
-  };
+IMPORTANT: Return ONLY valid JSON. No markdown, no code fences.`;
 
   try {
-    const result = await fetchWithRetry(apiUrl, payload);
-    const candidate = result.candidates?.[0];
-
-    if (!candidate || !candidate.content?.parts?.[0]?.text) {
-      throw new Error('Invalid API response structure');
-    }
-
-    const responseText = candidate.content.parts[0].text;
-    const parsedData = parseCompetitorResponse(responseText);
-
-    // If we have rawText, it means parsing failed - return the text directly
-    if (parsedData.rawText) {
-      return {
-        text: responseText,
-        card: null
-      };
-    }
-
-    let summaryText = `Here's what I found for ${parsedData.bankName}:`;
-    if (parsedData.products && parsedData.products.length > 0) {
-      summaryText += `\n- ${parsedData.products[0].productName}: ${parsedData.products[0].interestRate}`;
-      if (parsedData.products.length > 1) {
-        summaryText += `\n- (and ${parsedData.products.length - 1} more... see card)`;
+    const responseText = await askGeminiWithSearch(userQuery, systemPrompt);
+    // Try to parse JSON
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsedData = JSON.parse(jsonMatch[0]);
+        if (parsedData.products && parsedData.products.length > 0) {
+          let summaryText = `Here's what I found for ${parsedData.bankName}:`;
+          summaryText += `\n- ${parsedData.products[0].productName}: ${parsedData.products[0].interestRate}`;
+          if (parsedData.products.length > 1) {
+            summaryText += `\n- (and ${parsedData.products.length - 1} more... see card)`;
+          }
+          return { text: summaryText, card: { type: 'externalData', data: parsedData } };
+        }
+      } catch {
+        console.warn('Could not parse JSON from response');
       }
-    } else {
-      summaryText = `I found information from ${parsedData.bankName}. See the card for details.`;
     }
-
-    return {
-      text: summaryText,
-      card: {
-        type: 'externalData',
-        data: parsedData
-      }
-    };
-
+    return { text: responseText, card: null };
   } catch (error) {
-    console.error("Error fetching structured competitor data:", error);
+    console.error('Error fetching competitor data:', error);
     return {
-      text: "I'm sorry, I couldn't fetch that live data right now. The bank's website might be down or the information isn't public. Please try rephrasing.",
+      text: "I'm sorry, I couldn't fetch that live data right now. Please try again.",
       card: null
     };
   }
@@ -174,7 +63,7 @@ If no specific bank is mentioned, find the most relevant one (e.g., for "persona
 // --- END API Helper Functions ---
 
 const AIChatbot = () => {
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<Array<{ type: string; text: string; timestamp: Date; card?: { type: string; data: unknown } | null }>>([
     {
       type: 'bot',
       text: "Hello! I'm your Internal Banking Assistant. I can help you with customer lookups, risk analysis, product information, and competitive rates. How can I assist you today?",
@@ -184,7 +73,7 @@ const AIChatbot = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -194,12 +83,11 @@ const AIChatbot = () => {
     scrollToBottom();
   }, [messages]);
 
-  const processMessage = async (userMessage) => {
+  const processMessage = async (userMessage: string) => {
     setIsTyping(true);
-    const mockDelay = () => new Promise(resolve => setTimeout(resolve, 1000));
     const lowerMsg = userMessage.toLowerCase();
     
-    let response = {
+    const response: { type: string; text: string; timestamp: Date; card: { type: string; data: unknown } | null } = {
       type: 'bot',
       text: '',
       timestamp: new Date(),
@@ -208,45 +96,23 @@ const AIChatbot = () => {
 
     try {
       if (lowerMsg.includes('profile') || lowerMsg.includes('customer') || lowerMsg.includes('account')) {
-        await mockDelay();
         const customerId = lowerMsg.match(/\d{6,}/)?.[0] || '987654';
+        // Use Gemini to generate a realistic customer profile
+        const profileData = await askGeminiJSON(`Generate a realistic Indian bank customer profile for customer ID ${customerId}. Return JSON:
+{ "id": "${customerId}", "name": "...", "kycStatus": "Verified|Pending", "memberSince": "Mon DD, YYYY", "contact": "+91-...", "email": "...", "products": ["Savings Account", ...] }`,
+          'You are an Indian banking system. Generate realistic but fictional customer data.');
         response.text = `Fetching profile for customer ID ${customerId}...`;
-        response.card = {
-          type: 'customerProfile',
-          data: {
-            id: customerId,
-            name: 'Rohan Sharma',
-            kycStatus: 'Verified',
-            memberSince: 'Mar 15, 2018',
-            contact: '+91-98XXXXX654',
-            email: 'r.sharma@example.com',
-            products: ['Savings Account', 'Home Loan (Active)', 'Credit Card']
-          }
-        };
+        response.card = { type: 'customerProfile', data: profileData };
       } 
       else if (lowerMsg.includes('risk') || lowerMsg.includes('analyze') || lowerMsg.includes('underwrite')) {
-        await mockDelay();
         const appId = lowerMsg.match(/[A-Z0-9-]{5,}/i)?.[0] || 'APP-456-B';
-        response.text = `Running risk assessment for application ${appId}...`;
-        response.card = {
-          type: 'riskAnalysis',
-          data: {
-            appId: appId,
-            applicantScore: 780,
-            dtiRatio: 0.25,
-            collateral: 'Sufficient',
-            recommendation: 'Approve',
-            keyFactors: [
-              { name: 'High Credit Score', status: 'positive' },
-              { name: 'Stable Income Source', status: 'positive' },
-              { name: 'Low DTI Ratio', status: 'positive' },
-              { name: 'Short Credit History', status: 'neutral' }
-            ]
-          }
-        };
+        const riskData = await askGeminiJSON(`Run a risk assessment for loan application ${appId}. Return JSON:
+{ "appId": "${appId}", "applicantScore": <600-850>, "dtiRatio": <0.1-0.6>, "collateral": "Sufficient|Insufficient", "recommendation": "Approve|Reject|Review", "keyFactors": [{"name": "...", "status": "positive|negative|neutral"}] }`,
+          'You are an Indian bank risk analysis AI.');
+        response.text = `Running AI risk assessment for application ${appId}...`;
+        response.card = { type: 'riskAnalysis', data: riskData };
       } 
       else if ((lowerMsg.includes('our') || lowerMsg.includes('internal')) && (lowerMsg.includes('rate') || lowerMsg.includes('loan'))) {
-        await mockDelay();
         response.text = "Here are our current internal rates for loan products:";
         response.card = {
           type: 'productInfo',
@@ -259,28 +125,21 @@ const AIChatbot = () => {
         };
       } 
       else if (
-        lowerMsg.includes('rate') || 
-        lowerMsg.includes('loan') || 
-        lowerMsg.includes('interest') || 
-        lowerMsg.includes('credit card') ||
-        lowerMsg.includes('mortgage') ||
-        lowerMsg.includes('deposit') ||
-        lowerMsg.includes('bank') ||
-        lowerMsg.includes('sbi') ||
-        lowerMsg.includes('hdfc') ||
-        lowerMsg.includes('icici')
+        lowerMsg.includes('rate') || lowerMsg.includes('loan') || lowerMsg.includes('interest') || 
+        lowerMsg.includes('credit card') || lowerMsg.includes('mortgage') || lowerMsg.includes('deposit') ||
+        lowerMsg.includes('bank') || lowerMsg.includes('sbi') || lowerMsg.includes('hdfc') || lowerMsg.includes('icici')
       ) {
         const apiResponse = await fetchCompetitorData(userMessage);
         response.text = apiResponse.text;
         response.card = apiResponse.card;
       } 
       else if (lowerMsg.includes('help') || lowerMsg.includes('what can you')) {
-        await mockDelay();
-        response.text = "As an internal assistant, I can help you with:\n\n✓ Look up Customer Profiles (e.g., 'profile for 123456')\n✓ Analyze Risk for Applications (e.g., 'analyze risk for APP-101')\n✓ Check Internal Product Rates (e.g., 'our home loan rates')\n✓ Fetch Competitor Rates (e.g., 'SBI personal loan rate')";
+        response.text = "As an internal assistant powered by Gemini AI, I can help you with:\n\n✓ Look up Customer Profiles (e.g., 'profile for 123456')\n✓ Analyze Risk for Applications (e.g., 'analyze risk for APP-101')\n✓ Check Internal Product Rates (e.g., 'our home loan rates')\n✓ Fetch Competitor Rates via Google Search (e.g., 'SBI personal loan rate')\n✓ Ask me anything about banking, compliance, or finance!";
       } 
       else {
-        await mockDelay();
-        response.text = `I'm not sure how to respond to that. I am trained to assist with:\n\n- Customer Profile Lookups\n- Risk Analysis\n- Internal Product Information\n- Competitor Rate Lookups\n\nCould you please rephrase your request?`;
+        // General AI chat — use Gemini for any banking question
+        const aiResponse = await chatWithAdvisor(userMessage);
+        response.text = aiResponse;
       }
     
     } catch (error) {
@@ -301,7 +160,7 @@ const AIChatbot = () => {
     setInput('');
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -319,7 +178,7 @@ const AIChatbot = () => {
     }
   };
 
-  const QuickAction = ({ icon: Icon, text, query }) => (
+  const QuickAction = ({ icon: Icon, text, query }: { icon: React.ElementType; text: string; query: string }) => (
     <button
       onClick={() => {
         const userMessage = { type: 'user', text: query, timestamp: new Date() };
@@ -334,7 +193,8 @@ const AIChatbot = () => {
     </button>
   );
 
-  const renderCard = (card) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderCard = (card: { type: string; data: any }) => {
     if (!card) return null;
 
     switch (card.type) {
@@ -422,7 +282,7 @@ const AIChatbot = () => {
           </div>
         );
       
-      case 'externalData':
+      case 'externalData': {
         const { bankName, products, sourceURL, sourceTitle } = card.data;
         return (
           <div className="mt-3 p-4 bg-gray-800 rounded-xl border border-gray-700 shadow-sm">
@@ -457,7 +317,7 @@ const AIChatbot = () => {
                      </tr>
                    )) : (
                      <tr>
-                       <td colSpan="2" className="px-4 py-3 text-center text-gray-400">No specific products found.</td>
+                       <td colSpan={2} className="px-4 py-3 text-center text-gray-400">No specific products found.</td>
                      </tr>
                    )}
                  </tbody>
@@ -480,6 +340,7 @@ const AIChatbot = () => {
              </p>
           </div>
         );
+      }
 
       default:
         return null;
@@ -589,7 +450,7 @@ const AIChatbot = () => {
         </div>
       </div>
 
-      <style jsx="true">{`
+      <style>{`
         @keyframes fadeIn {
           from {
             opacity: 0;

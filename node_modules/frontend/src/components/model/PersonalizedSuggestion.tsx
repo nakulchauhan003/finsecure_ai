@@ -15,6 +15,7 @@ import {
   User, // Added missing import
   Brain // Added missing import
 } from 'lucide-react';
+import { generateCounterOffer, AICounterOffer } from '../../utils/gemini';
 
 // Define types for our data structures
 interface CustomerData {
@@ -96,6 +97,8 @@ const PersonalizedRateComparison = () => {
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [aiOffer, setAiOffer] = useState<AICounterOffer | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   // --- Risk Analysis Logic (Unchanged) ---
   // This logic is still needed to assess the customer's risk for our bank
@@ -284,6 +287,17 @@ const PersonalizedRateComparison = () => {
       
       setLoading(false);
       setStep(2);
+
+      // Fire Gemini AI counter-offer in background
+      setAiLoading(true);
+      setAiOffer(null);
+      generateCounterOffer(
+        { name: customerData.name, age: customerData.age, income: customerData.income, creditScore: customerData.creditScore, existingDebt: customerData.existingDebt, loanType: customerData.loanType, loanAmount: customerData.loanAmount, tenure: customerData.tenure },
+        { bankName: customerData.competitorBankName, rate: customerData.competitorRate }
+      ).then(result => {
+        setAiOffer(result);
+      }).catch(err => console.error('AI counter-offer failed:', err))
+        .finally(() => setAiLoading(false));
     }, 2000);
   };
 
@@ -299,6 +313,7 @@ const PersonalizedRateComparison = () => {
     setStep(1);
     setComparisonResult(null);
     setFormError(null);
+    setAiOffer(null);
     // Reset competitor fields as well
     setCustomerData({
       ...customerData,
@@ -610,6 +625,40 @@ const PersonalizedRateComparison = () => {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* --- Gemini AI Counter-Offer Insight --- */}
+              <div className="rounded-xl p-5 mb-6 border border-purple-500/30 bg-gradient-to-r from-purple-600/20 to-pink-600/20">
+                <h4 className="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" /> Gemini AI Strategy
+                </h4>
+                {aiLoading ? (
+                  <div className="flex items-center gap-2 text-purple-300 text-sm">
+                    <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                    Generating AI-powered counter-offer strategy...
+                  </div>
+                ) : aiOffer ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs font-semibold">
+                        AI Rate: {aiOffer.suggestedRate}%
+                      </span>
+                      <span className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs font-semibold">
+                        Strategy: {aiOffer.strategy}
+                      </span>
+                      <span className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs font-semibold">
+                        Confidence: {aiOffer.confidenceLevel}%
+                      </span>
+                    </div>
+                    <p className="text-purple-200 text-sm">{aiOffer.reasoning}</p>
+                    <p className="text-purple-300 text-xs"><strong>Competitor Analysis:</strong> {aiOffer.competitorAnalysis}</p>
+                    {aiOffer.savingsForCustomer > 0 && (
+                      <p className="text-green-300 text-sm font-semibold">AI estimates ₹{aiOffer.savingsForCustomer.toLocaleString()} monthly savings for customer</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-purple-300 text-sm">AI analysis will appear after comparison</p>
+                )}
               </div>
 
               {/* --- Side-by-Side Cards --- */}

@@ -4,8 +4,9 @@ import {
   Brain, CheckCircle, XCircle, User, Info, ChevronDown, ChevronUp, 
   Sliders, Download, HelpCircle, BarChart3, FileText, Target, 
   Lightbulb, Scale, Lock, ArrowRight, Eye, ChevronLeft, ChevronRight,
-  Shield // <-- FIX: Added the missing icon here
+  Shield, Sparkles
 } from 'lucide-react';
+import { explainLoanDecision, AILoanExplanation } from '../../utils/gemini';
 
 type FeatureImpact = {
   feature: string;
@@ -91,6 +92,8 @@ export default function LoanPredictionXAI() {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [expanded, setExpanded] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("shap");
+  const [aiExplanation, setAiExplanation] = useState<AILoanExplanation | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     setPredictions(allMockPredictions);
@@ -100,7 +103,24 @@ export default function LoanPredictionXAI() {
   useEffect(() => {
     setExpanded(false);
     setActiveTab('shap');
-  }, [currentIndex]);
+    setAiExplanation(null);
+    // Fire Gemini AI explanation in background
+    if (predictions[currentIndex]) {
+      const pred = predictions[currentIndex];
+      setAiLoading(true);
+      explainLoanDecision({
+        customerId: pred.customerId,
+        customerName: pred.customerName,
+        loanAmount: pred.loanAmount,
+        approved: pred.approved,
+        probability: pred.probability,
+        modelConfidence: pred.modelConfidence,
+        features: pred.features,
+      }).then(result => setAiExplanation(result))
+        .catch(err => console.error('AI loan explanation failed:', err))
+        .finally(() => setAiLoading(false));
+    }
+  }, [currentIndex, predictions]);
 
   const prediction = predictions[currentIndex];
 
@@ -594,6 +614,56 @@ export default function LoanPredictionXAI() {
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+
+            {/* Gemini AI Explanation */}
+            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-xl border border-purple-500/30 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-purple-400" />
+                Gemini AI Explanation
+              </h3>
+              {aiLoading ? (
+                <div className="flex items-center gap-2 text-purple-300 text-sm">
+                  <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  Generating AI explanation for {prediction.customerName}...
+                </div>
+              ) : aiExplanation ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      aiExplanation.decision === 'Approved' ? 'bg-green-500/20 text-green-400' : 
+                      aiExplanation.decision === 'Rejected' ? 'bg-red-500/20 text-red-400' : 
+                      'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      AI: {aiExplanation.decision} ({Math.round(aiExplanation.confidence * 100)}%)
+                    </span>
+                  </div>
+                  <p className="text-purple-200 text-sm">{aiExplanation.narrativeExplanation}</p>
+                  {aiExplanation.topFactors && aiExplanation.topFactors.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {aiExplanation.topFactors.slice(0, 4).map((f, i) => (
+                        <div key={i} className={`text-xs px-3 py-2 rounded ${
+                          f.impact >= 0 ? 'bg-green-500/10 text-green-300' : 'bg-red-500/10 text-red-300'
+                        }`}>
+                          <strong>{f.feature}</strong>: {f.explanation}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {aiExplanation.whatIfSuggestions && aiExplanation.whatIfSuggestions.length > 0 && (
+                    <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-400/30">
+                      <p className="text-xs text-blue-300 font-semibold mb-1">AI What-If Suggestions:</p>
+                      {aiExplanation.whatIfSuggestions.map((s, i) => (
+                        <p key={i} className="text-xs text-blue-200 flex items-start gap-1">
+                          <ArrowRight size={12} className="mt-0.5 flex-shrink-0" /> {s}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-purple-300 text-sm">AI explanation loading...</p>
               )}
             </div>
 

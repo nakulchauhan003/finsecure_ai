@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Shield, AlertTriangle, CheckCircle, XCircle, TrendingUp, User, Briefcase, CreditCard, Calendar, DollarSign, Activity, Target, Brain, Zap, Eye, Lock, FileCheck, BarChart3, Percent, FileText, X, Sparkles, Home, Building, Wrench, ShoppingCart } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, XCircle, TrendingUp, User, Briefcase, DollarSign, Activity, Target, Brain, Zap, Eye, Lock, FileCheck, BarChart3, FileText, X, Sparkles, Home, Building, Wrench, ShoppingCart } from 'lucide-react';
+import { analyzeRisk, type AIRiskAnalysis } from '../../utils/gemini';
 
 interface BaseFormData {
   name: string;
@@ -247,6 +248,8 @@ export default function RiskAssessmentSystem() {
   const [formData, setFormData] = useState<FormData>({} as FormData);
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [processingStep, setProcessingStep] = useState(0);
+  const [aiInsight, setAiInsight] = useState<AIRiskAnalysis | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   
   // Initialize the hybrid model
   const { calculateSHAPValues, calculateAdaptiveThreshold, predictWithXGBoost } = useHybridXGBoostSHAP();
@@ -497,6 +500,24 @@ export default function RiskAssessmentSystem() {
     });
 
     setStage('results');
+
+    // Fire Gemini AI analysis in background (non-blocking)
+    setAiLoading(true);
+    analyzeRisk({
+      ...formData,
+      creditScore,
+      loanAmount,
+      previousDefaults,
+      accountAge,
+      localRiskScore: riskScore,
+      localCategory: riskCategory,
+    }).then(result => {
+      setAiInsight(result);
+      setAiLoading(false);
+    }).catch(err => {
+      console.error('Gemini AI risk analysis failed:', err);
+      setAiLoading(false);
+    });
   };
 
   const resetAssessment = () => {
@@ -504,6 +525,7 @@ export default function RiskAssessmentSystem() {
     setEmploymentType(null);
     setBusinessType(null);
     setAssessment(null);
+    setAiInsight(null);
     setProcessingStep(0);
   };
 
@@ -1125,6 +1147,44 @@ export default function RiskAssessmentSystem() {
                 <BarChart3 className="w-6 h-6 text-indigo-400" />
                 XGBoost-SHAP Feature Analysis (Explainable AI)
               </h3>
+
+              {/* Gemini AI Insight Panel */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-400/30">
+                <h4 className="text-white font-semibold flex items-center gap-2 mb-2">
+                  <Sparkles className="w-5 h-5 text-purple-400" />
+                  Gemini AI Analysis
+                </h4>
+                {aiLoading ? (
+                  <div className="flex items-center gap-2 text-purple-300">
+                    <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                    Analyzing with Gemini AI...
+                  </div>
+                ) : aiInsight ? (
+                  <div className="space-y-2">
+                    <p className="text-purple-200 text-sm">{aiInsight.explanation}</p>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="text-white">AI Risk Score: <strong>{aiInsight.riskScore}/100</strong></span>
+                      <span className="text-white">AI Category: <strong>{aiInsight.riskCategory}</strong></span>
+                      <span className="text-white">AI Rate: <strong>{aiInsight.suggestedRate}%</strong></span>
+                    </div>
+                    {aiInsight.keyFactors && aiInsight.keyFactors.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {aiInsight.keyFactors.map((f, i) => (
+                          <span key={i} className={`px-2 py-1 rounded-full text-xs ${
+                            f.impact === 'positive' ? 'bg-green-500/20 text-green-300' :
+                            f.impact === 'negative' ? 'bg-red-500/20 text-red-300' :
+                            'bg-gray-500/20 text-gray-300'
+                          }`}>
+                            {f.factor}: {f.detail}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-purple-300 text-sm">AI analysis unavailable</p>
+                )}
+              </div>
 
               <div className="space-y-4">
                 {assessment.features.map((feature, index) => (

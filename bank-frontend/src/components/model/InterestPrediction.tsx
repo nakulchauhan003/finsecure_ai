@@ -12,6 +12,7 @@ import {
   FileText,
   X
 } from 'lucide-react';
+import { predictInterestRate, AIRatePrediction } from '../../utils/gemini';
 
 interface PredictionResult {
   rate: number;
@@ -32,6 +33,8 @@ function App() {
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showDetailedExplanation, setShowDetailedExplanation] = useState(false);
+  const [aiPrediction, setAiPrediction] = useState<AIRatePrediction | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -114,6 +117,19 @@ function App() {
       });
 
       setIsLoading(false);
+
+      // Fire Gemini AI prediction in background
+      setAiLoading(true);
+      setAiPrediction(null);
+      predictInterestRate({
+        creditScore: Number(formData.creditScore),
+        monthlyIncome: parseFloat(formData.monthlyIncome) || 0,
+        existingEmis: parseFloat(formData.existingEmis) || 0,
+        loanAmount: parseFloat(formData.loanAmount) || 0,
+        employmentStability: parseFloat(formData.employmentStability) || 0,
+      }).then(result => setAiPrediction(result))
+        .catch(err => console.error('AI rate prediction failed:', err))
+        .finally(() => setAiLoading(false));
     }, 1500);
   };
   
@@ -378,6 +394,54 @@ function App() {
                     </p>
                   </div>
                 )}
+
+                {/* Gemini AI Rate Prediction */}
+                <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg p-6 border border-purple-500/30">
+                  <h3 className="text-lg font-semibold text-purple-200 mb-3 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-400" />
+                    Gemini AI Prediction
+                  </h3>
+                  {aiLoading ? (
+                    <div className="flex items-center gap-2 text-purple-300 text-sm">
+                      <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                      Running Gemini AI analysis...
+                    </div>
+                  ) : aiPrediction ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-white/10 rounded-lg p-3 text-center">
+                          <p className="text-purple-300 text-xs mb-1">AI Rate</p>
+                          <p className="text-2xl font-bold text-white">{aiPrediction.predictedRate}%</p>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3 text-center">
+                          <p className="text-purple-300 text-xs mb-1">AI Term</p>
+                          <p className="text-2xl font-bold text-white">{aiPrediction.predictedTerm}mo</p>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3 text-center">
+                          <p className="text-purple-300 text-xs mb-1">AI EMI</p>
+                          <p className="text-2xl font-bold text-white">{formatCurrency(aiPrediction.monthlyEMI)}</p>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3 text-center">
+                          <p className="text-purple-300 text-xs mb-1">Confidence</p>
+                          <p className="text-2xl font-bold text-white">{aiPrediction.confidence}%</p>
+                        </div>
+                      </div>
+                      {aiPrediction.adjustments && aiPrediction.adjustments.length > 0 && (
+                        <div className="space-y-1">
+                          {aiPrediction.adjustments.slice(0, 4).map((adj, i) => (
+                            <div key={i} className={`text-xs px-3 py-1.5 rounded ${
+                              adj.adjustment <= 0 ? 'bg-green-500/10 text-green-300' : 'bg-red-500/10 text-red-300'
+                            }`}>
+                              {adj.adjustment >= 0 ? '+' : ''}{adj.adjustment}% {adj.factor}: {adj.reason}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-purple-300 text-sm">Click &quot;Predict Rate & Term&quot; to get AI prediction</p>
+                  )}
+                </div>
 
                 {/* Detailed Explanation Button */}
                 <div className="flex justify-center">

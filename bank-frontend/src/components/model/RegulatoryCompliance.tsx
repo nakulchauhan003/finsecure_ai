@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { checkCompliance, type AIComplianceResult } from '../../utils/gemini';
 
 interface LoanDecision {
   loanAmount: number;
@@ -212,11 +213,24 @@ export default function RegulatoryCompliance() {
   const [checks, setChecks] = useState<ComplianceCheck[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [activeTab, setActiveTab] = useState<'checker' | 'guidelines' | 'monitor'>('checker');
+  const [aiCompliance, setAiCompliance] = useState<AIComplianceResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const handleRunChecks = () => {
     const results = runComplianceChecks(loanData);
     setChecks(results);
     setShowResults(true);
+
+    // Fire Gemini AI check in background
+    setAiLoading(true);
+    setAiCompliance(null);
+    checkCompliance(loanData as unknown as Record<string, unknown>).then(result => {
+      setAiCompliance(result);
+      setAiLoading(false);
+    }).catch(err => {
+      console.error('Gemini compliance check failed:', err);
+      setAiLoading(false);
+    });
   };
 
   const passCount = checks.filter(c => c.status === 'pass').length;
@@ -324,6 +338,49 @@ export default function RegulatoryCompliance() {
 
           {/* Charts row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Gemini AI Compliance Insight */}
+            <div className="md:col-span-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
+                ✨ Gemini AI Regulatory Analysis
+              </h3>
+              {aiLoading ? (
+                <div className="flex items-center gap-2 text-purple-300 text-sm">
+                  <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  Running AI compliance analysis with latest RBI guidelines...
+                </div>
+              ) : aiCompliance ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${aiCompliance.overallCompliant ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      AI Score: {aiCompliance.score}/100
+                    </span>
+                    <span className={`text-sm ${aiCompliance.overallCompliant ? 'text-green-400' : 'text-red-400'}`}>
+                      {aiCompliance.overallCompliant ? '✅ AI confirms compliance' : '❌ AI found issues'}
+                    </span>
+                  </div>
+                  {aiCompliance.issues && aiCompliance.issues.length > 0 && (
+                    <div className="space-y-1">
+                      {aiCompliance.issues.slice(0, 5).map((issue, i) => (
+                        <div key={i} className={`text-xs px-3 py-1.5 rounded ${
+                          issue.status === 'pass' ? 'bg-green-500/10 text-green-300' :
+                          issue.status === 'warning' ? 'bg-yellow-500/10 text-yellow-300' :
+                          'bg-red-500/10 text-red-300'
+                        }`}>
+                          {issue.status === 'pass' ? '✓' : issue.status === 'warning' ? '⚠' : '✗'} {issue.rule}: {issue.detail}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {aiCompliance.recommendations && aiCompliance.recommendations.length > 0 && (
+                    <div className="text-xs text-purple-200 mt-2">
+                      <strong>AI Recommendations:</strong> {aiCompliance.recommendations.join(' • ')}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-purple-300 text-sm">Click &quot;Run Compliance Check&quot; to get AI analysis</p>
+              )}
+            </div>
             <div className="bg-slate-800/40 border border-purple-500/20 rounded-2xl p-4">
               <h3 className="text-sm font-semibold text-gray-300 mb-3 text-center">Compliance Distribution</h3>
               <ResponsiveContainer width="100%" height={200}>
