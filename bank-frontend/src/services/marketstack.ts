@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // MarketStack API configuration
 const MARKETSTACK_BASE_URL = 'http://api.marketstack.com/v2';
-const API_KEY = 'REDACTED_MARKETSTACK_API_KEY'; // Your provided API key
+const API_KEY = import.meta.env.VITE_MARKETSTACK_API_KEY || '';
 
 // Type definitions for MarketStack API responses
 interface MarketStackEodData {
