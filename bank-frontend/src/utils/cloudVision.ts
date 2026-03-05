@@ -1,9 +1,10 @@
 /**
  * Google Cloud Vision API Utility
- * Provides real OCR for KYC documents (Aadhaar, PAN) and loan documents
+ * Uses backend proxy (service account) with fallback to direct API key
  */
 
 const getApiKey = () => import.meta.env.VITE_GOOGLE_API_KEY || '';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
 
 const VISION_API_URL = 'https://vision.googleapis.com/v1/images:annotate';
 
@@ -38,12 +39,32 @@ async function fileToBase64(file: File): Promise<string> {
 
 /**
  * Call Google Cloud Vision OCR on an image file.
+ * Tries backend proxy (service account) first, falls back to API key.
  */
 export async function performOCR(file: File): Promise<OCRResult> {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error('VITE_GOOGLE_API_KEY not set');
-
   const base64 = await fileToBase64(file);
+
+  // Try backend proxy first
+  try {
+    const proxyRes = await fetch(`${BACKEND_URL}/api/vision/ocr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64, mimeType: file.type }),
+    });
+    if (proxyRes.ok) {
+      const data = await proxyRes.json();
+      const annotations = data.responses?.[0];
+      if (annotations) {
+        return processVisionResponse(annotations);
+      }
+    }
+  } catch {
+    // Backend not available, fall back
+  }
+
+  // Fallback: direct API key
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error('VITE_GOOGLE_API_KEY not set and backend proxy unavailable');
 
   const payload = {
     requests: [
@@ -81,10 +102,18 @@ export async function performOCR(file: File): Promise<OCRResult> {
     };
   }
 
-  const fullText = annotations.fullTextAnnotation?.text || annotations.textAnnotations?.[0]?.description || '';
-  const pages = annotations.fullTextAnnotation?.pages || [];
-  
-  // Get confidence from pages
+  return processVisionResponse(annotations);
+}
+
+/**
+ * Process Vision API response annotations into an OCRResult.
+ */
+function processVisionResponse(annotations: Record<string, unknown>): OCRResult {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ann = annotations as any;
+  const fullText: string = ann.fullTextAnnotation?.text || ann.textAnnotations?.[0]?.description || '';
+  const pages = ann.fullTextAnnotation?.pages || [];
+
   let totalConfidence = 0;
   let blockCount = 0;
   const blocks: OCRResult['blocks'] = [];
@@ -92,35 +121,24 @@ export async function performOCR(file: File): Promise<OCRResult> {
   for (const page of pages) {
     for (const block of page.blocks || []) {
       const blockText = (block.paragraphs || [])
-        .flatMap((p: { words?: Array<{ symbols?: Array<{ text?: string }> }> }) => 
-          (p.words || []).map((w: { symbols?: Array<{ text?: string }> }) => 
+        .flatMap((p: { words?: Array<{ symbols?: Array<{ text?: string }> }> }) =>
+          (p.words || []).map((w: { symbols?: Array<{ text?: string }> }) =>
             (w.symbols || []).map((s: { text?: string }) => s.text || '').join('')
           ).join(' ')
         ).join('\n');
-      
+
       const conf = block.confidence || 0;
       totalConfidence += conf;
       blockCount++;
-      
-      blocks.push({
-        text: blockText,
-        confidence: conf,
-      });
+
+      blocks.push({ text: blockText, confidence: conf });
     }
   }
 
   const avgConfidence = blockCount > 0 ? totalConfidence / blockCount : 0.5;
-
-  // Detect document type and extract structured fields
   const { documentType, extractedFields } = parseDocument(fullText);
 
-  return {
-    fullText,
-    extractedFields,
-    confidence: avgConfidence,
-    documentType,
-    blocks,
-  };
+  return { fullText, extractedFields, confidence: avgConfidence, documentType, blocks };
 }
 
 /**
@@ -255,33 +273,54 @@ export async function detectTampering(file: File): Promise<{
   safeSearchAnnotation: Record<string, string>;
   imageProperties: Record<string, unknown>;
 }> {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error('VITE_GOOGLE_API_KEY not set');
-
   const base64 = await fileToBase64(file);
 
-  const payload = {
-    requests: [
-      {
-        image: { content: base64 },
-        features: [
-          { type: 'SAFE_SEARCH_DETECTION' },
-          { type: 'IMAGE_PROPERTIES' },
-        ],
-      },
-    ],
-  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let response: any = {};
 
-  const res = await fetch(`${VISION_API_URL}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  // Try backend proxy first
+  try {
+    const proxyRes = await fetch(`${BACKEND_URL}/api/vision/ocr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64, mimeType: file.type }),
+    });
+    if (proxyRes.ok) {
+      const data = await proxyRes.json();
+      response = data.responses?.[0] || {};
+    }
+  } catch {
+    // Backend not available, fall back to API key
+  }
 
-  if (!res.ok) throw new Error(`Cloud Vision error ${res.status}`);
+  // Fallback: direct API key if proxy didn't return a response
+  if (!response.safeSearchAnnotation && !response.imagePropertiesAnnotation) {
+    const apiKey = getApiKey();
+    if (!apiKey) throw new Error('VITE_GOOGLE_API_KEY not set and backend proxy unavailable');
 
-  const data = await res.json();
-  const response = data.responses?.[0] || {};
+    const payload = {
+      requests: [
+        {
+          image: { content: base64 },
+          features: [
+            { type: 'SAFE_SEARCH_DETECTION' },
+            { type: 'IMAGE_PROPERTIES' },
+          ],
+        },
+      ],
+    };
+
+    const res = await fetch(`${VISION_API_URL}?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error(`Cloud Vision error ${res.status}`);
+
+    const data = await res.json();
+    response = data.responses?.[0] || {};
+  }
   const safeSearch = response.safeSearchAnnotation || {};
   const imageProps = response.imagePropertiesAnnotation || {};
 

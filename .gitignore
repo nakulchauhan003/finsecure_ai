@@ -3,3 +3,11 @@
 /node_modules
 /node_modules
 /node_modules
+
+# Secrets — NEVER commit
+credentials.json
+service-account*.json
+*.pem
+.env
+.env.*
+!.env.example
