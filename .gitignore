@@ -1,8 +1,5 @@
 /.turbo
-/node_modules
-/node_modules
-/node_modules
-/node_modules
+node_modules/
 
 # Secrets — NEVER commit
 credentials.json

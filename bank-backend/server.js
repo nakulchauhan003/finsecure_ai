@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { GoogleAuth } from 'google-auth-library';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -40,8 +42,13 @@ async function getAccessToken() {
 
 // ─── Express Server ───
 const app = express();
+app.use(helmet());
 app.use(cors({ origin: ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'] }));
 app.use(express.json({ limit: '20mb' }));
+
+// Rate limiting: 60 requests per minute per IP
+const apiLimiter = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false });
+app.use('/api/', apiLimiter);
 
 // Health check
 app.get('/api/health', async (_req, res) => {
