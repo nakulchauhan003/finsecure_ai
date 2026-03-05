@@ -1,0 +1,153 @@
+{
+  "model_version": "RA-XGB-v1.0",
+  "model_type": "XGBoost Classifier",
+  "train_date": "2026-03-05",
+  "training_samples": 15000,
+  "n_features": 24,
+  "feature_columns": [
+    "age",
+    "credit_score",
+    "monthly_income",
+    "loan_amount",
+    "previous_defaults",
+    "account_age",
+    "loan_enquiries",
+    "total_expenditure",
+    "other_fixed_expenses",
+    "gross_revenue",
+    "expected_margin",
+    "business_rent",
+    "utilities_salaries",
+    "business_age",
+    "gst_registered",
+    "dti_ratio",
+    "loan_to_income",
+    "foir",
+    "dscr",
+    "expense_to_revenue",
+    "rental_burden",
+    "employment_type_enc",
+    "housing_type_enc",
+    "business_type_enc"
+  ],
+  "feature_importance": [
+    {
+      "feature": "previous_defaults",
+      "importance": 0.1429
+    },
+    {
+      "feature": "credit_score",
+      "importance": 0.0982
+    },
+    {
+      "feature": "foir",
+      "importance": 0.0486
+    },
+    {
+      "feature": "dti_ratio",
+      "importance": 0.0455
+    },
+    {
+      "feature": "account_age",
+      "importance": 0.0454
+    },
+    {
+      "feature": "loan_enquiries",
+      "importance": 0.043
+    },
+    {
+      "feature": "utilities_salaries",
+      "importance": 0.0411
+    },
+    {
+      "feature": "business_rent",
+      "importance": 0.0362
+    },
+    {
+      "feature": "age",
+      "importance": 0.0357
+    },
+    {
+      "feature": "dscr",
+      "importance": 0.035
+    },
+    {
+      "feature": "loan_amount",
+      "importance": 0.0347
+    },
+    {
+      "feature": "total_expenditure",
+      "importance": 0.0347
+    },
+    {
+      "feature": "business_age",
+      "importance": 0.0344
+    },
+    {
+      "feature": "expected_margin",
+      "importance": 0.0344
+    },
+    {
+      "feature": "gross_revenue",
+      "importance": 0.0344
+    },
+    {
+      "feature": "monthly_income",
+      "importance": 0.0336
+    },
+    {
+      "feature": "expense_to_revenue",
+      "importance": 0.0334
+    },
+    {
+      "feature": "gst_registered",
+      "importance": 0.0329
+    },
+    {
+      "feature": "housing_type_enc",
+      "importance": 0.0322
+    },
+    {
+      "feature": "rental_burden",
+      "importance": 0.0321
+    },
+    {
+      "feature": "other_fixed_expenses",
+      "importance": 0.0314
+    },
+    {
+      "feature": "loan_to_income",
+      "importance": 0.0311
+    },
+    {
+      "feature": "business_type_enc",
+      "importance": 0.029
+    },
+    {
+      "feature": "employment_type_enc",
+      "importance": 0.0
+    }
+  ],
+  "metrics": {
+    "auc": 0.6871,
+    "precision": 0.4675,
+    "recall": 0.5966,
+    "f1": 0.5242,
+    "ks_statistic": 0.2957,
+    "cv_auc_mean": NaN,
+    "cv_auc_std": NaN
+  },
+  "default_rate": 0.3174,
+  "hyperparameters": {
+    "n_estimators": 300,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8
+  },
+  "threshold_policy": {
+    "conservative": 0.2,
+    "moderate": 0.35,
+    "aggressive": 0.5
+  }
+}

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useState, useEffect, ReactNode } from 'react';
 
 /**
  * RTL/Direction context — complements next-themes (which handles dark/light).
@@ -35,12 +35,6 @@ export function DirectionProvider({ children }: { children: ReactNode }) {
       {children}
     </DirectionContext.Provider>
   );
-}
-
-export function useDirection() {
-  const ctx = useContext(DirectionContext);
-  if (!ctx) throw new Error('useDirection must be used within DirectionProvider');
-  return ctx;
 }
 
 export default DirectionContext;

@@ -251,7 +251,7 @@ const AIChatbot = () => {
             <div className="mt-3 pt-3 border-t border-gray-600">
               <h5 className="text-xs text-gray-400 mb-1">Key Factors:</h5>
               <ul className="space-y-1">
-                {card.data.keyFactors.map((factor, idx) => (
+                {card.data.keyFactors.map((factor: { name: string; status: string }, idx: number) => (
                   <li key={idx} className={`flex items-center gap-2 text-xs ${
                     factor.status === 'positive' ? 'text-green-400' : (factor.status === 'neutral' ? 'text-gray-300' : 'text-red-400')
                   }`}>
@@ -267,7 +267,7 @@ const AIChatbot = () => {
       case 'productInfo':
         return (
           <div className="mt-3 space-y-2">
-            {card.data.map((product, idx) => (
+            {card.data.map((product: { name: string; rate: string; criteria: string; ltv?: number }, idx: number) => (
               <div key={idx} className="p-3 bg-gray-800 rounded-lg border border-gray-700 shadow-sm">
                 <div className="flex justify-between items-start mb-2">
                   <h5 className="font-semibold text-emerald-300">{product.name}</h5>
@@ -310,7 +310,7 @@ const AIChatbot = () => {
                    </tr>
                  </thead>
                  <tbody className="bg-gray-800">
-                   {products && products.length > 0 ? products.map((product, idx) => (
+                   {products && products.length > 0 ? products.map((product: { productName: string; interestRate: string; notes?: string }, idx: number) => (
                      <tr key={idx} className="border-b border-gray-700 last:border-b-0">
                        <td className="px-4 py-3 font-medium text-white">{product.productName}</td>
                        <td className="px-4 py-3 text-emerald-300 font-semibold">{product.interestRate}</td>
@@ -324,11 +324,11 @@ const AIChatbot = () => {
                </table>
              </div>
              
-             {products && products.some(p => p.notes) && (
+             {products && products.some((p: { notes?: string }) => p.notes) && (
                 <div className="mt-3">
                   <h5 className="text-xs text-gray-400 mb-1">Notes:</h5>
                   <ul className="space-y-1 list-disc list-inside text-xs text-gray-300">
-                    {products.filter(p => p.notes).map((p, idx) => (
+                    {products.filter((p: { notes?: string }) => p.notes).map((p: { productName: string; notes?: string }, idx: number) => (
                       <li key={idx}><strong>{p.productName}:</strong> {p.notes}</li>
                     ))}
                   </ul>

@@ -203,15 +203,87 @@ app.post('/api/nlp/analyze', async (req, res) => {
   }
 });
 
+// ─── ML Risk Assessment API Proxy ───
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+
+// Score a loan application (proxies to Python ML service)
+app.post('/api/risk/score', async (req, res) => {
+  try {
+    const apiRes = await fetch(`${ML_SERVICE_URL}/score_application`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+
+    const data = await apiRes.json();
+    if (!apiRes.ok) {
+      return res.status(apiRes.status).json({ error: data.detail || 'ML scoring error', details: data });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('ML scoring proxy error:', err);
+    res.status(500).json({ error: 'ML service unavailable. Is the Python service running on port 8000?' });
+  }
+});
+
+// Fraud scoring endpoint
+app.post('/api/risk/fraud', async (req, res) => {
+  try {
+    const apiRes = await fetch(`${ML_SERVICE_URL}/fraud_score`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+
+    const data = await apiRes.json();
+    if (!apiRes.ok) {
+      return res.status(apiRes.status).json({ error: data.detail || 'Fraud scoring error', details: data });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('Fraud scoring proxy error:', err);
+    res.status(500).json({ error: 'ML service unavailable' });
+  }
+});
+
+// Model metadata
+app.get('/api/risk/model-metadata', async (_req, res) => {
+  try {
+    const apiRes = await fetch(`${ML_SERVICE_URL}/model_metadata`);
+    const data = await apiRes.json();
+    res.json(data);
+  } catch (err) {
+    console.error('Model metadata error:', err);
+    res.status(500).json({ error: 'ML service unavailable' });
+  }
+});
+
+// ML service health check
+app.get('/api/risk/health', async (_req, res) => {
+  try {
+    const apiRes = await fetch(`${ML_SERVICE_URL}/health`);
+    const data = await apiRes.json();
+    res.json({ ...data, proxy: true });
+  } catch (err) {
+    res.status(503).json({ status: 'ml_service_down', error: err.message });
+  }
+});
+
 // ─── Start ───
 app.listen(PORT, () => {
   console.log(`\n🚀 FinSecure AI Backend running on http://localhost:${PORT}`);
   console.log(`   Service Account: ${credentials.client_email}`);
   console.log(`   Project: ${PROJECT_ID}`);
   console.log(`\n   Endpoints:`);
-  console.log(`   GET  /api/health      — Check connection`);
-  console.log(`   POST /api/gemini      — Gemini AI proxy`);
-  console.log(`   POST /api/vision/ocr  — Cloud Vision OCR`);
-  console.log(`   POST /api/nlp/analyze — NLP analysis`);
+  console.log(`   GET  /api/health            — Check connection`);
+  console.log(`   POST /api/gemini            — Gemini AI proxy`);
+  console.log(`   POST /api/vision/ocr        — Cloud Vision OCR`);
+  console.log(`   POST /api/nlp/analyze       — NLP analysis`);
+  console.log(`   POST /api/risk/score        — ML risk scoring`);
+  console.log(`   POST /api/risk/fraud        — ML fraud detection`);
+  console.log(`   GET  /api/risk/model-metadata — Model info`);
+  console.log(`   GET  /api/risk/health       — ML service health`);
   console.log('');
 });

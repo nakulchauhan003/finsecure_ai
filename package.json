@@ -4,6 +4,7 @@
   "packageManager": "npm@10.2.0",
   "workspaces": [
     "bank-frontend",
+    "bank-backend",
     "dashboard"
   ],
   "scripts": {

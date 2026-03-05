@@ -97,7 +97,6 @@ const useHybridXGBoostSHAP = () => {
   // SHAP values calculation (simplified for demo)
   const calculateSHAPValues = (formData: FormData) => {
     const creditScore = formData.creditScore || 650;
-    const loanAmount = Number(formData.loanAmount) || 100000;
     const previousDefaults = parseInt(formData.previousDefaults) || 0;
     const accountAge = Number(formData.accountAge) || 1;
 
@@ -126,7 +125,6 @@ const useHybridXGBoostSHAP = () => {
     if (formData.employmentType === 'salaried') {
       const monthlySalary = Number(formData.monthlySalary) || 50000;
       const officeRent = Number(formData.officeRent) || 0;
-      const otherFixedExpenses = Number(formData.otherFixedExpenses) || 0;
       const totalExpenditure = Number(formData.totalExpenditure) || 0;
       const loanEnquiries = parseInt(formData.loanEnquiries) || 0;
       
@@ -162,7 +160,6 @@ const useHybridXGBoostSHAP = () => {
       const businessAge = Number(formData.businessAge) || 1;
       const loanEnquiries = parseInt(formData.loanEnquiries) || 0;
       
-      const netProfit = grossRevenue * (expectedMargin / 100);
       const totalExpenses = businessRent + utilitiesSalaries;
       const expenseToIncomeRatio = totalExpenses / (grossRevenue || 1);
       
@@ -227,7 +224,7 @@ const useHybridXGBoostSHAP = () => {
   };
 
   // XGBoost prediction (simplified)
-  const predictWithXGBoost = (formData: FormData, shapValues: SHAPValue[]) => {
+  const predictWithXGBoost = (_formData: FormData, shapValues: SHAPValue[]) => {
     // Sum all SHAP values to get log-odds
     const logOdds = shapValues.reduce((sum: number, feature: SHAPValue) => sum + feature.shap, 0);
     
@@ -360,7 +357,6 @@ export default function RiskAssessmentSystem() {
       const expenditureToIncomeRatio = totalExpenditure / (monthlySalary || 1);
       marketConditions = expenditureToIncomeRatio > 0.7 ? 'high_risk' : expenditureToIncomeRatio < 0.4 ? 'low_risk' : 'normal';
     } else {
-      const grossRevenue = Number((formData as SelfEmployedFormData).grossRevenue) || 100000;
       const expectedMargin = Number((formData as SelfEmployedFormData).expectedMargin) || 20;
       marketConditions = expectedMargin < 15 ? 'high_risk' : expectedMargin > 25 ? 'low_risk' : 'normal';
     }

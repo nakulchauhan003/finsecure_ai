@@ -86,65 +86,63 @@ const DOCUMENT_TEMPLATES: Record<string, { fields: { label: string; value: strin
   }
 };
 
-function realDocumentOCR(file: File): Promise<DocumentAnalysis> {
-  return new Promise(async (resolve) => {
-    const startTime = Date.now();
-    try {
-      // Run OCR and tampering detection in parallel
-      const [ocrResult, tamperResult] = await Promise.all([
-        performOCR(file),
-        detectTampering(file),
-      ]);
+async function realDocumentOCR(file: File): Promise<DocumentAnalysis> {
+  const startTime = Date.now();
+  try {
+    // Run OCR and tampering detection in parallel
+    const [ocrResult, tamperResult] = await Promise.all([
+      performOCR(file),
+      detectTampering(file),
+    ]);
 
-      const processingTime = (Date.now() - startTime) / 1000;
-      const fields = Object.entries(ocrResult.extractedFields);
+    const processingTime = (Date.now() - startTime) / 1000;
+    const fields = Object.entries(ocrResult.extractedFields);
 
-      resolve({
-        documentType: ocrResult.documentType,
-        fileName: file.name,
-        fileSize: file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${(file.size / 1024).toFixed(0)} KB`,
-        extractedFields: fields.map(([label, value]) => ({
-          label,
-          value,
-          confidence: ocrResult.confidence || 0.85,
-        })),
-        overallConfidence: ocrResult.confidence || 0.85,
-        fraudFlags: tamperResult.flags,
-        integrityScore: tamperResult.tamperingDetected ? 35 + Math.random() * 25 : 78 + Math.random() * 20,
-        processingTime,
-        ocrEngine: 'Google Cloud Vision API',
-        tamperingDetected: tamperResult.tamperingDetected,
-        signatureDetected: ocrResult.fullText.toLowerCase().includes('signature') || ocrResult.fullText.toLowerCase().includes('sign'),
-        stampDetected: ocrResult.fullText.toLowerCase().includes('stamp') || ocrResult.fullText.toLowerCase().includes('seal'),
-      });
-    } catch (err) {
-      console.error('Cloud Vision failed, using fallback:', err);
-      // Fallback to template-based simulation
-      const name = file.name.toLowerCase();
-      let templateKey = 'loan_application';
-      if (name.includes('salary') || name.includes('income') || name.includes('slip')) templateKey = 'income_proof';
-      else if (name.includes('property') || name.includes('deed') || name.includes('sale')) templateKey = 'property_doc';
-      else if (name.includes('bank') || name.includes('statement')) templateKey = 'bank_statement';
+    return {
+      documentType: ocrResult.documentType,
+      fileName: file.name,
+      fileSize: file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${(file.size / 1024).toFixed(0)} KB`,
+      extractedFields: fields.map(([label, value]) => ({
+        label,
+        value,
+        confidence: ocrResult.confidence || 0.85,
+      })),
+      overallConfidence: ocrResult.confidence || 0.85,
+      fraudFlags: tamperResult.flags,
+      integrityScore: tamperResult.tamperingDetected ? 35 + Math.random() * 25 : 78 + Math.random() * 20,
+      processingTime,
+      ocrEngine: 'Google Cloud Vision API',
+      tamperingDetected: tamperResult.tamperingDetected,
+      signatureDetected: ocrResult.fullText.toLowerCase().includes('signature') || ocrResult.fullText.toLowerCase().includes('sign'),
+      stampDetected: ocrResult.fullText.toLowerCase().includes('stamp') || ocrResult.fullText.toLowerCase().includes('seal'),
+    };
+  } catch (err) {
+    console.error('Cloud Vision failed, using fallback:', err);
+    // Fallback to template-based simulation
+    const name = file.name.toLowerCase();
+    let templateKey = 'loan_application';
+    if (name.includes('salary') || name.includes('income') || name.includes('slip')) templateKey = 'income_proof';
+    else if (name.includes('property') || name.includes('deed') || name.includes('sale')) templateKey = 'property_doc';
+    else if (name.includes('bank') || name.includes('statement')) templateKey = 'bank_statement';
 
-      const template = DOCUMENT_TEMPLATES[templateKey];
-      const processingTime = (Date.now() - startTime) / 1000;
+    const template = DOCUMENT_TEMPLATES[templateKey];
+    const processingTime = (Date.now() - startTime) / 1000;
 
-      resolve({
-        documentType: template.type,
-        fileName: file.name,
-        fileSize: file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${(file.size / 1024).toFixed(0)} KB`,
-        extractedFields: template.fields.map(f => ({ label: f.label, value: f.value, confidence: f.confidence })),
-        overallConfidence: template.fields.reduce((a, f) => a + f.confidence, 0) / template.fields.length,
-        fraudFlags: [],
-        integrityScore: 85 + Math.random() * 10,
-        processingTime,
-        ocrEngine: 'Local Fallback',
-        tamperingDetected: false,
-        signatureDetected: template.fields.some(f => f.label.toLowerCase().includes('signature')),
-        stampDetected: template.fields.some(f => f.label.toLowerCase().includes('stamp')),
-      });
-    }
-  });
+    return {
+      documentType: template.type,
+      fileName: file.name,
+      fileSize: file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${(file.size / 1024).toFixed(0)} KB`,
+      extractedFields: template.fields.map(f => ({ label: f.label, value: f.value, confidence: f.confidence })),
+      overallConfidence: template.fields.reduce((a, f) => a + f.confidence, 0) / template.fields.length,
+      fraudFlags: [],
+      integrityScore: 85 + Math.random() * 10,
+      processingTime,
+      ocrEngine: 'Local Fallback',
+      tamperingDetected: false,
+      signatureDetected: template.fields.some(f => f.label.toLowerCase().includes('signature')),
+      stampDetected: template.fields.some(f => f.label.toLowerCase().includes('stamp')),
+    };
+  }
 }
 
 // Declared values for cross-verification

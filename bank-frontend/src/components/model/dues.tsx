@@ -1,7 +1,6 @@
 import React, { useState, useCallback, FC } from 'react';
 import { format, addDays, differenceInDays, isValid, subMonths } from 'date-fns';
 import {
-  ArrowRight,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -12,14 +11,12 @@ import {
   Search,
   AlertTriangle,
   CheckCircle,
-  XCircle,
   TrendingUp,
   Activity,
   Target,
   FileText,
   CreditCard,
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // Types
 interface Customer {
@@ -321,7 +318,7 @@ const safeParseDate = (dateStr: string): Date => {
   try {
     const parsedDate = new Date(dateStr);
     return isValid(parsedDate) ? parsedDate : new Date();
-  } catch (error) {
+  } catch {
     return new Date();
   }
 };
