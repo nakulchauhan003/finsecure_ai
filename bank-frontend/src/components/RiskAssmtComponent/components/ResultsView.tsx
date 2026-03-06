@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Eye, Lock, BarChart3, Sparkles, FileText, X, Brain, User, Target, Info } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Eye, Lock, BarChart3, Sparkles, FileText, X, Brain, User, Target, Info, DollarSign } from 'lucide-react';
 import type { ScoringResponse } from '../../../services/riskAssessmentApi';
 import type { AIRiskAnalysis } from '../../../utils/gemini';
 import type { FormData, SalariedFormData, SelfEmployedFormData } from '../types';
@@ -118,6 +118,61 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
           </p>
         </div>
       </div>
+
+      {/* Interest Rate Pricing Breakdown */}
+      {scoring.rate_breakdown && scoring.interest_rate && (
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">
+          <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+            <DollarSign className="w-6 h-6 text-green-400" />
+            Interest Rate Pricing — Multi-Factor Breakdown
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Waterfall breakdown */}
+            <div className="space-y-3">
+              {[
+                { label: 'Base Rate (MCLR Benchmark)', value: scoring.rate_breakdown.base_rate, color: 'text-blue-300' },
+                { label: `Credit Grade Premium (Grade ${scoring.rate_breakdown.credit_grade})`, value: scoring.rate_breakdown.grade_premium, color: 'text-purple-300' },
+                { label: 'PD Risk Premium', value: scoring.rate_breakdown.pd_premium, color: scoring.rate_breakdown.pd_premium > 0 ? 'text-red-300' : 'text-green-300' },
+                { label: 'FOIR Adjustment', value: scoring.rate_breakdown.foir_adjustment, color: scoring.rate_breakdown.foir_adjustment > 0 ? 'text-red-300' : scoring.rate_breakdown.foir_adjustment < 0 ? 'text-green-300' : 'text-gray-300' },
+                { label: 'Loan Amount Adjustment', value: scoring.rate_breakdown.loan_amount_adjustment, color: scoring.rate_breakdown.loan_amount_adjustment < 0 ? 'text-green-300' : scoring.rate_breakdown.loan_amount_adjustment > 0 ? 'text-red-300' : 'text-gray-300' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between bg-white/5 rounded-lg px-4 py-3">
+                  <span className="text-indigo-200 text-sm">{item.label}</span>
+                  <span className={`font-mono font-bold ${item.color}`}>
+                    {item.value > 0 ? '+' : ''}{item.value.toFixed(2)}%
+                  </span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between bg-gradient-to-r from-indigo-500/30 to-purple-500/30 rounded-lg px-4 py-3 border border-indigo-400/50">
+                <span className="text-white font-semibold">Final Interest Rate</span>
+                <span className="text-white font-bold text-xl">{scoring.interest_rate}% p.a.</span>
+              </div>
+            </div>
+
+            {/* Visual bar chart */}
+            <div className="flex flex-col justify-center space-y-2">
+              {[
+                { label: 'Base Rate', value: scoring.rate_breakdown.base_rate, color: 'bg-blue-400' },
+                { label: 'Grade Premium', value: scoring.rate_breakdown.grade_premium, color: 'bg-purple-400' },
+                { label: 'PD Premium', value: scoring.rate_breakdown.pd_premium, color: 'bg-red-400' },
+                { label: 'FOIR Adj.', value: scoring.rate_breakdown.foir_adjustment, color: scoring.rate_breakdown.foir_adjustment < 0 ? 'bg-green-400' : 'bg-orange-400' },
+                { label: 'Loan Adj.', value: scoring.rate_breakdown.loan_amount_adjustment, color: scoring.rate_breakdown.loan_amount_adjustment < 0 ? 'bg-green-400' : 'bg-orange-400' },
+              ].filter(item => item.value !== 0).map((item, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-indigo-300 text-xs w-24 text-right">{item.label}</span>
+                  <div className="flex-1 bg-white/10 rounded-full h-4 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${item.color}`}
+                      style={{ width: `${Math.min(Math.abs(item.value) / (scoring.interest_rate ?? 1) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-white text-xs w-14 font-mono">{item.value > 0 ? '+' : ''}{item.value.toFixed(1)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Financial Ratios */}
       <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">

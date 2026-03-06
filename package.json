@@ -5,7 +5,8 @@
   "workspaces": [
     "bank-frontend",
     "bank-backend",
-    "dashboard"
+    "dashboard",
+    "ml-service"
   ],
   "scripts": {
     "dev": "turbo run dev",

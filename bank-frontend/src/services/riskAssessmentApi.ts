@@ -48,6 +48,15 @@ export interface ModelMetadataShort {
   n_features: number;
 }
 
+export interface RateBreakdown {
+  base_rate: number;
+  grade_premium: number;
+  pd_premium: number;
+  foir_adjustment: number;
+  loan_amount_adjustment: number;
+  credit_grade: string;
+}
+
 export interface ScoringResponse {
   pd: number;
   raw_pd: number;
@@ -57,6 +66,7 @@ export interface ScoringResponse {
   approved: boolean;
   recommendation: string;
   interest_rate: number | null;
+  rate_breakdown?: RateBreakdown;
   shap_values: ShapContribution[];
   fraud: FraudResult;
   financial_ratios: FinancialRatios;

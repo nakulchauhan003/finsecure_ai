@@ -273,21 +273,85 @@ def prepare_features(data: dict) -> pd.DataFrame:
     return pd.DataFrame([feature_row])[model_metadata["feature_columns"]]
 
 
-def get_risk_category(pd_value: float, threshold: float, credit_grade: str = "C"):
-    """Determine risk category and interest rate based on PD and credit grade."""
-    base_rate = GRADE_INT_RATE.get(credit_grade, 13.47)
-
+def get_risk_category(pd_value: float, threshold: float):
+    """Determine risk category from PD and threshold."""
     if pd_value < threshold * 0.5:
-        rate = round(base_rate, 2)
-        return "LOW", rate, f"Approved — Base rate for grade {credit_grade}"
+        return "LOW", "Approved — Low risk profile"
     elif pd_value < threshold:
-        rate = round(base_rate + 2.0, 2)
-        return "MEDIUM", rate, f"Approved with conditions — Grade {credit_grade} + risk premium"
+        return "MEDIUM", "Approved with conditions — Moderate risk"
     elif pd_value < threshold * 1.5:
-        rate = round(base_rate + 5.0, 2)
-        return "HIGH", rate, "Manual review required — High interest rate"
+        return "HIGH", "Manual review required — Elevated risk"
     else:
-        return "CRITICAL", None, "Loan rejected — High probability of default"
+        return "CRITICAL", "Loan rejected — High probability of default"
+
+
+def calculate_interest_rate(data: dict, pd_value: float, risk_category: str,
+                            credit_grade: str, foir: float) -> dict:
+    """
+    Multi-factor interest rate pricing engine.
+    Combines: Base Rate + Credit Grade Premium + PD Risk Premium
+              + FOIR Adjustment + Loan Amount Adjustment
+
+    Returns dict with final rate and full breakdown.
+    """
+    # 1. Base rate (linked to RBI repo rate / MCLR benchmark)
+    base_rate = 7.0  # approximate MCLR-linked base
+
+    # 2. Credit grade premium (spread over base)
+    grade_premiums = {
+        "A": 0.5,  "B": 2.5,  "C": 5.0,
+        "D": 7.5,  "E": 10.0, "F": 13.0, "G": 15.0,
+    }
+    grade_premium = grade_premiums.get(credit_grade, 5.0)
+
+    # 3. PD-based risk premium
+    if pd_value < 0.05:
+        pd_premium = 0.0
+    elif pd_value < 0.10:
+        pd_premium = 1.0
+    elif pd_value < 0.25:
+        pd_premium = 4.0
+    elif pd_value < 0.50:
+        pd_premium = 8.0
+    else:
+        pd_premium = 12.0
+
+    # 4. FOIR / DTI adjustment
+    if foir < 0.30:
+        foir_adj = -0.5
+    elif foir <= 0.50:
+        foir_adj = 0.0
+    else:
+        foir_adj = 2.0
+
+    # 5. Loan amount adjustment (INR — after percentile mapping the API
+    #    receives the original INR amount from the frontend)
+    loan_amount = data["loan_amount"]
+    if loan_amount < 200_000:
+        loan_adj = 1.0
+    elif loan_amount <= 1_000_000:
+        loan_adj = 0.0
+    else:
+        loan_adj = -0.5
+
+    # Assemble
+    final_rate = base_rate + grade_premium + pd_premium + foir_adj + loan_adj
+    final_rate = round(max(final_rate, base_rate), 2)  # floor at base rate
+
+    if risk_category == "CRITICAL":
+        final_rate = None  # rejected — no rate offered
+
+    return {
+        "final_rate": final_rate,
+        "breakdown": {
+            "base_rate": base_rate,
+            "grade_premium": round(grade_premium, 2),
+            "pd_premium": round(pd_premium, 2),
+            "foir_adjustment": round(foir_adj, 2),
+            "loan_amount_adjustment": round(loan_adj, 2),
+            "credit_grade": credit_grade,
+        },
+    }
 
 
 def generate_fraud_flags(data: dict, anomaly_score: float) -> list:
@@ -438,7 +502,7 @@ async def score_application(req: ScoringRequest):
 
         # 5. Decision
         credit_grade = _credit_score_to_grade(data["credit_score"])
-        risk_category, interest_rate, recommendation = get_risk_category(effective_pd, base_threshold, credit_grade)
+        risk_category, recommendation = get_risk_category(effective_pd, base_threshold)
         approved = risk_category in ("LOW", "MEDIUM")
 
         # Financial ratios for display
@@ -446,6 +510,9 @@ async def score_application(req: ScoringRequest):
         foir = (data["total_expenditure"] + data.get("other_fixed_expenses", 0)) / max(data["monthly_income"], 1)
         loan_to_income = data["loan_amount"] / max(data["monthly_income"] * 12, 1)
         dscr = data["monthly_income"] / max(data["loan_amount"] / 120, 1)
+
+        # 6. Multi-factor interest rate pricing
+        pricing = calculate_interest_rate(data, effective_pd, risk_category, credit_grade, foir)
 
         return {
             "pd": round(effective_pd, 4),
@@ -455,7 +522,8 @@ async def score_application(req: ScoringRequest):
             "risk_score": round((1 - effective_pd) * 100, 1),
             "approved": approved,
             "recommendation": recommendation,
-            "interest_rate": interest_rate,
+            "interest_rate": pricing["final_rate"],
+            "rate_breakdown": pricing["breakdown"],
             "shap_values": shap_contributions[:12],
             "fraud": {
                 "probability": round(fraud_probability, 4),
