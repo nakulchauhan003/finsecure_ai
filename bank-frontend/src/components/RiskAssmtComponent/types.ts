@@ -22,6 +22,7 @@ export interface SalariedFormData extends BaseFormData {
   totalExpenditure: string;
   loanEnquiries: string;
   applicationDuration: string;
+  loanPurpose: 'personal' | 'education' | 'home' | 'vehicle' | 'business' | 'medical';
 }
 
 export interface SelfEmployedFormData extends BaseFormData {
@@ -35,6 +36,7 @@ export interface SelfEmployedFormData extends BaseFormData {
   gstRegistered: 'yes' | 'no';
   loanEnquiries: string;
   applicationPeriod: string;
+  loanPurpose: 'personal' | 'education' | 'home' | 'vehicle' | 'business' | 'medical';
 }
 
 export type FormData = SalariedFormData | SelfEmployedFormData;

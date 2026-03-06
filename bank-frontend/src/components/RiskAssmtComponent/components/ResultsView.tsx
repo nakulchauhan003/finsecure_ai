@@ -49,6 +49,29 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
 
   return (
     <div className="space-y-6">
+      {/* Approval / Rejection Banner */}
+      <div className={`rounded-xl p-5 flex items-center justify-between border-2 ${
+        scoring.approved
+          ? 'bg-green-500/20 border-green-400/60'
+          : 'bg-red-500/20 border-red-400/60'
+      }`}>
+        <div className="flex items-center gap-4">
+          {scoring.approved
+            ? <CheckCircle className="w-10 h-10 text-green-400" />
+            : <XCircle className="w-10 h-10 text-red-400" />}
+          <div>
+            <p className={`text-2xl font-bold ${scoring.approved ? 'text-green-300' : 'text-red-300'}`}>
+              Application {scoring.approved ? 'APPROVED' : 'REJECTED'}
+            </p>
+            <p className="text-white/70 text-sm">
+              {scoring.approved
+                ? `Calibrated PD ${(scoring.pd * 100).toFixed(1)}% is within the ${scoring.threshold.risk_appetite} cutoff of ${(scoring.threshold.pd_cutoff * 100).toFixed(0)}%`
+                : `Calibrated PD ${(scoring.pd * 100).toFixed(1)}% exceeds the ${scoring.threshold.risk_appetite} cutoff of ${(scoring.threshold.pd_cutoff * 100).toFixed(0)}%`}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Risk Score Card */}
       <div className={`bg-gradient-to-br ${getRiskColorClasses(riskColor)} backdrop-blur-lg rounded-xl border p-8`}>
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
@@ -67,6 +90,9 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
           <div className="text-center">
             <p className="text-white/80 mb-2">Default Probability</p>
             <p className="text-3xl font-bold text-white">{(scoring.pd * 100).toFixed(1)}%</p>
+            {scoring.raw_pd !== undefined && Math.abs(scoring.raw_pd - scoring.pd) > 0.001 && (
+              <p className="text-white/60 text-xs mt-1">Raw: {(scoring.raw_pd * 100).toFixed(1)}% → Calibrated</p>
+            )}
           </div>
           <div className="text-center">
             <p className="text-white/80 mb-2">Risk Category</p>
@@ -168,16 +194,16 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
           SHAP Feature Analysis — Real XGBoost Explainability
         </h3>
 
-        {/* Gemini AI Insight Panel */}
+        {/* AI Insight Panel */}
         <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-400/30">
           <h4 className="text-white font-semibold flex items-center gap-2 mb-2">
             <Sparkles className="w-5 h-5 text-purple-400" />
-            Gemini AI Analysis
+            AI Analysis
           </h4>
           {isAiLoading ? (
             <div className="flex items-center gap-2 text-purple-300">
               <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-              Analyzing with Gemini AI...
+              Analyzing with AI...
             </div>
           ) : aiInsight ? (
             <div className="space-y-2">
@@ -226,7 +252,7 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
                   className={`h-full rounded-full transition-all ${
                     sv.shap_value < -0.05 ? 'bg-green-400' : sv.shap_value > 0.05 ? 'bg-red-400' : 'bg-yellow-400'
                   }`}
-                  style={{ width: `${Math.min(Math.abs(sv.shap_value) * 200, 100)}%` }}
+                  style={{ width: `${Math.min(Math.abs(sv.shap_value) / (Math.max(...scoring.shap_values.map(s => Math.abs(s.shap_value))) || 1) * 100, 100)}%` }}
                 />
               </div>
             </div>
@@ -347,11 +373,12 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
               </h4>
               <div className="space-y-3">
                 {[
-                  { step: 1, title: 'XGBoost Prediction', desc: `Model predicted PD of ${(scoring.raw_pd * 100).toFixed(1)}% using ${scoring.model_metadata.n_features} trained features` },
-                  { step: 2, title: 'SHAP Explainability', desc: `Real TreeSHAP values computed — top contributor: ${scoring.shap_values[0]?.feature} (${scoring.shap_values[0]?.shap_value.toFixed(4)})` },
-                  { step: 3, title: 'Fraud Detection (Isolation Forest)', desc: `Anomaly score: ${scoring.fraud.anomaly_score.toFixed(3)} — ${scoring.fraud.is_anomaly ? 'Anomaly detected' : 'Normal pattern'} — ${scoring.fraud.flags.length} flag(s)` },
-                  { step: 4, title: 'Risk Appetite Threshold', desc: `${scoring.threshold.risk_appetite} policy applied (PD cutoff: ${(scoring.threshold.pd_cutoff * 100).toFixed(0)}%)` },
-                  { step: 5, title: 'Final Decision', desc: `${scoring.approved ? 'Approved' : 'Rejected'} — Risk score: ${scoring.risk_score.toFixed(1)}/100 — Category: ${scoring.risk_category}` },
+                  { step: 1, title: 'XGBoost v3.0 Prediction (32K real records)', desc: `Model predicted raw PD of ${(scoring.raw_pd * 100).toFixed(1)}% using ${scoring.model_metadata.n_features} features including 4 engineered interactions` },
+                  { step: 2, title: 'Isotonic Calibration', desc: `Raw PD ${(scoring.raw_pd * 100).toFixed(1)}% calibrated to ${(scoring.pd * 100).toFixed(1)}% for reliable probability estimates` },
+                  { step: 3, title: 'SHAP Explainability', desc: `TreeSHAP values computed — top contributor: ${scoring.shap_values[0]?.feature} (${scoring.shap_values[0]?.shap_value.toFixed(4)})` },
+                  { step: 4, title: 'Fraud Detection (Isolation Forest)', desc: `Anomaly score: ${scoring.fraud.anomaly_score.toFixed(3)} — ${scoring.fraud.is_anomaly ? 'Anomaly detected' : 'Normal pattern'} — ${scoring.fraud.flags.length} flag(s)` },
+                  { step: 5, title: 'Risk Appetite Threshold', desc: `${scoring.threshold.risk_appetite} policy applied (PD cutoff: ${(scoring.threshold.pd_cutoff * 100).toFixed(0)}%)` },
+                  { step: 6, title: 'Final Decision', desc: `${scoring.approved ? 'Approved' : 'Rejected'} — Risk score: ${scoring.risk_score.toFixed(1)}/100 — Category: ${scoring.risk_category}` },
                 ].map(({ step, title, desc }) => (
                   <div key={step} className="flex items-start gap-4 bg-white/5 rounded-lg p-4">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0 font-bold text-white">{step}</div>

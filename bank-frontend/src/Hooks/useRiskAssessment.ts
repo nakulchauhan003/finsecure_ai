@@ -69,7 +69,7 @@ export function useRiskAssessment(): UseRiskAssessmentReturn {
       setScoring(result);
       setStage('results');
 
-      // Fire Gemini AI analysis in background (non-blocking)
+      // Fire AI analysis in background (non-blocking)
       setIsAiLoading(true);
       analyzeRisk({
         ...data,
@@ -79,7 +79,7 @@ export function useRiskAssessment(): UseRiskAssessmentReturn {
         setAiInsight(aiResult);
         setIsAiLoading(false);
       }).catch(err => {
-        console.error('Gemini AI analysis failed:', err);
+        console.error('AI analysis failed:', err);
         setIsAiLoading(false);
       });
 

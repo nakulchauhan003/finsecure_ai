@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Shield, Settings, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
 import { useRiskAssessment } from '../../Hooks/useRiskAssessment';
@@ -51,7 +51,7 @@ const INITIAL_SALARIED: SalariedFormData = {
   employmentType: 'salaried',
   name: '', age: '', creditScore: 750, loanAmount: '', previousDefaults: '0', accountAge: '24',
   monthlySalary: '', housingType: 'rent', officeRent: '0', otherFixedExpenses: '0',
-  totalExpenditure: '', loanEnquiries: '1', applicationDuration: '36',
+  totalExpenditure: '', loanEnquiries: '1', applicationDuration: '36', loanPurpose: 'personal',
 };
 
 const INITIAL_SELF_EMPLOYED: SelfEmployedFormData = {
@@ -59,7 +59,7 @@ const INITIAL_SELF_EMPLOYED: SelfEmployedFormData = {
   businessType: 'trading',
   name: '', age: '', creditScore: 750, loanAmount: '', previousDefaults: '0', accountAge: '24',
   grossRevenue: '', expectedMargin: '20', businessRent: '0', utilitiesSalaries: '0',
-  businessAge: '3', gstRegistered: 'yes', loanEnquiries: '1', applicationPeriod: '36',
+  businessAge: '3', gstRegistered: 'yes', loanEnquiries: '1', applicationPeriod: '36', loanPurpose: 'business',
 };
 
 // --- Helpers ---
@@ -84,6 +84,7 @@ function buildScoringRequest(data: FormData): ScoringRequest {
       total_expenditure: Number(s.totalExpenditure),
       other_fixed_expenses: Number(s.officeRent) + Number(s.otherFixedExpenses),
       loan_enquiries: Number(s.loanEnquiries),
+      loan_purpose: s.loanPurpose,
     };
   }
 
@@ -105,6 +106,7 @@ function buildScoringRequest(data: FormData): ScoringRequest {
     business_age: Number(se.businessAge),
     gst_registered: se.gstRegistered === 'yes' ? 1 : 0,
     business_type: se.businessType,
+    loan_purpose: se.loanPurpose,
   };
 }
 
@@ -147,19 +149,19 @@ export default function RiskAssessmentComponent() {
 
   // Generic form change handler
   const handleSalariedChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
     setSalariedData(prev => ({
       ...prev,
-      [name]: type === 'range' || name === 'creditScore' ? Number(value) : value,
+      [name]: name === 'creditScore' ? Number(value) : value,
     }));
     setFormErrors(prev => { const next = { ...prev }; delete next[name]; return next; });
   }, []);
 
   const handleSelfEmployedChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
     setSelfEmployedData(prev => ({
       ...prev,
-      [name]: type === 'range' || name === 'creditScore' ? Number(value) : value,
+      [name]: name === 'creditScore' ? Number(value) : value,
     }));
     setFormErrors(prev => { const next = { ...prev }; delete next[name]; return next; });
   }, []);
@@ -208,7 +210,7 @@ export default function RiskAssessmentComponent() {
             <Shield className="w-10 h-10 text-indigo-400" />
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-white">Risk Assessment Engine</h1>
-              <p className="text-indigo-300 text-sm">XGBoost ML · SHAP · Isolation Forest · Gemini AI</p>
+              <p className="text-indigo-300 text-sm">v3.0 — Real Data XGBoost · SHAP Explainability · Isolation Forest · AI Analysis</p>
             </div>
           </div>
 

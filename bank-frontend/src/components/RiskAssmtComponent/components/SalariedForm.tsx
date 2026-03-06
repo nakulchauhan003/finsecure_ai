@@ -120,6 +120,19 @@ export default function SalariedForm({ formData, onChange, onSubmit, errors }: P
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-indigo-200 mb-2">Loan Purpose</label>
+            <select name="loanPurpose" value={formData.loanPurpose} onChange={onChange}
+              className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              <option value="personal" className="bg-slate-800">Personal</option>
+              <option value="education" className="bg-slate-800">Education</option>
+              <option value="home" className="bg-slate-800">Home Improvement</option>
+              <option value="vehicle" className="bg-slate-800">Vehicle</option>
+              <option value="medical" className="bg-slate-800">Medical</option>
+              <option value="business" className="bg-slate-800">Business / Venture</option>
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-indigo-200 mb-2 flex items-center gap-2">
               <DollarSign className="w-4 h-4" /> Requested Loan Amount (₹)
             </label>

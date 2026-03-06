@@ -157,36 +157,6 @@ def _credit_score_to_grade(score: int) -> str:
     return "G"
 
 
-# ── Percentile-based cross-market mapping (INR → USD feature space) ──
-# The model was trained on US consumer loan data. Indian financial
-# profiles are mapped to equivalent US percentiles so absolute values
-# and ratios land within the model's training distribution.
-
-PERCENTILES = [0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99]
-
-# Indian monthly income distribution (INR/month)
-INDIAN_INCOME_MONTHLY = [15000, 30000, 50000, 80000, 150000, 250000, 500000]
-# US annual income distribution ($) at matching percentiles (from dataset)
-US_INCOME_ANNUAL = [24000, 38500, 55000, 79200, 120000, 180000, 500000]
-
-# Indian loan amount distribution (INR)
-INDIAN_LOAN_AMT = [30000, 100000, 300000, 800000, 2000000, 5000000, 10000000]
-# US loan amount distribution ($) at matching percentiles (from dataset)
-US_LOAN_AMT = [1500, 5000, 8000, 12200, 20000, 30000, 35000]
-
-
-def _map_income(monthly_inr: float) -> float:
-    """Map Indian monthly income (INR) → US annual income ($) via percentile."""
-    pct = np.interp(monthly_inr, INDIAN_INCOME_MONTHLY, PERCENTILES)
-    return float(np.interp(pct, PERCENTILES, US_INCOME_ANNUAL))
-
-
-def _map_loan(loan_inr: float) -> float:
-    """Map Indian loan amount (INR) → US loan amount ($) via percentile."""
-    pct = np.interp(loan_inr, INDIAN_LOAN_AMT, PERCENTILES)
-    return float(np.interp(pct, PERCENTILES, US_LOAN_AMT))
-
-
 def prepare_features(data: dict) -> pd.DataFrame:
     """Map frontend request fields → model's 15-feature space."""
     credit_score = data["credit_score"]
@@ -197,8 +167,8 @@ def prepare_features(data: dict) -> pd.DataFrame:
     # 1. person_age → direct
     person_age = data["age"]
 
-    # 2. person_income → annual USD via percentile mapping (frontend sends monthly INR)
-    person_income = _map_income(monthly_income)
+    # 2. person_income → annual (frontend sends monthly)
+    person_income = monthly_income * 12
 
     # 3. person_emp_length → use account_age as proxy for employment length
     emp_stability = data.get("employment_stability")
@@ -209,8 +179,8 @@ def prepare_features(data: dict) -> pd.DataFrame:
     else:
         person_emp_length = account_age
 
-    # 4. loan_amnt → convert INR to USD via percentile mapping
-    loan_amnt = _map_loan(loan_amount)
+    # 4. loan_amnt → direct
+    loan_amnt = loan_amount
 
     # 5. loan_grade → derived from credit score
     grade = _credit_score_to_grade(credit_score)
@@ -220,8 +190,8 @@ def prepare_features(data: dict) -> pd.DataFrame:
     # 6. loan_int_rate → from grade mapping
     loan_int_rate = GRADE_INT_RATE.get(grade, 13.47)
 
-    # 7. loan_percent_income → computed (both in USD scale from percentile mapping)
-    loan_percent_income = loan_amnt / max(person_income, 1)
+    # 7. loan_percent_income → computed
+    loan_percent_income = loan_amount / max(person_income, 1)
 
     # 8. cb_person_default_on_file → from previous_defaults
     cb_default_enc = 1 if data["previous_defaults"] > 0 else 0
@@ -273,19 +243,14 @@ def prepare_features(data: dict) -> pd.DataFrame:
     return pd.DataFrame([feature_row])[model_metadata["feature_columns"]]
 
 
-def get_risk_category(pd_value: float, threshold: float, credit_grade: str = "C"):
-    """Determine risk category and interest rate based on PD and credit grade."""
-    base_rate = GRADE_INT_RATE.get(credit_grade, 13.47)
-
+def get_risk_category(pd_value: float, threshold: float):
+    """Determine risk category and interest rate."""
     if pd_value < threshold * 0.5:
-        rate = round(base_rate, 2)
-        return "LOW", rate, f"Approved — Base rate for grade {credit_grade}"
+        return "LOW", 8.5, "Approved — Standard interest rate"
     elif pd_value < threshold:
-        rate = round(base_rate + 2.0, 2)
-        return "MEDIUM", rate, f"Approved with conditions — Grade {credit_grade} + risk premium"
+        return "MEDIUM", 10.5, "Approved with conditions — Slightly higher rate"
     elif pd_value < threshold * 1.5:
-        rate = round(base_rate + 5.0, 2)
-        return "HIGH", rate, "Manual review required — High interest rate"
+        return "HIGH", 13.5, "Manual review required — High interest rate"
     else:
         return "CRITICAL", None, "Loan rejected — High probability of default"
 
@@ -437,8 +402,7 @@ async def score_application(req: ScoringRequest):
         effective_pd = min(pd_probability + fraud_penalty, 0.99)
 
         # 5. Decision
-        credit_grade = _credit_score_to_grade(data["credit_score"])
-        risk_category, interest_rate, recommendation = get_risk_category(effective_pd, base_threshold, credit_grade)
+        risk_category, interest_rate, recommendation = get_risk_category(effective_pd, base_threshold)
         approved = risk_category in ("LOW", "MEDIUM")
 
         # Financial ratios for display

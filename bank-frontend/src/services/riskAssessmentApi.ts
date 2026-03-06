@@ -83,6 +83,7 @@ export interface ScoringRequest {
   business_age?: number;
   gst_registered?: number;
   business_type?: string;
+  loan_purpose?: 'personal' | 'education' | 'home' | 'vehicle' | 'business' | 'medical';
   risk_appetite: 'conservative' | 'moderate' | 'aggressive';
 }
 

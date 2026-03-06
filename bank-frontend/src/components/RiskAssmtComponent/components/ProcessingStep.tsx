@@ -7,11 +7,11 @@ interface Props {
 const processingSteps = [
   { icon: User, text: 'Verifying customer identity...', color: 'text-blue-400' },
   { icon: Shield, text: 'Running fraud detection...', color: 'text-purple-400' },
-  { icon: Activity, text: 'Analyzing transaction patterns...', color: 'text-cyan-400' },
-  { icon: BarChart3, text: 'Computing financial ratios...', color: 'text-green-400' },
-  { icon: Brain, text: 'Running XGBoost risk model...', color: 'text-pink-400' },
-  { icon: Target, text: 'Computing SHAP explanations...', color: 'text-orange-400' },
-  { icon: FileCheck, text: 'Generating recommendations...', color: 'text-emerald-400' },
+  { icon: Activity, text: 'Mapping cross-market percentiles...', color: 'text-cyan-400' },
+  { icon: BarChart3, text: 'Computing financial ratios & engineered features...', color: 'text-green-400' },
+  { icon: Brain, text: 'Running XGBoost v3.0 on 32K real credit records...', color: 'text-pink-400' },
+  { icon: Target, text: 'Computing SHAP explanations with isotonic calibration...', color: 'text-orange-400' },
+  { icon: FileCheck, text: 'Generating risk recommendations...', color: 'text-emerald-400' },
 ];
 
 export default function ProcessingStep({ currentStep }: Props) {
@@ -24,7 +24,7 @@ export default function ProcessingStep({ currentStep }: Props) {
             <Brain className="w-12 h-12 text-indigo-400 absolute top-6 left-6 animate-pulse" />
           </div>
           <h2 className="text-3xl font-bold text-white mt-6 mb-2">Analyzing Customer Profile</h2>
-          <p className="text-indigo-300">Real ML models are evaluating risk factors...</p>
+          <p className="text-indigo-300">v3.0 real-data XGBoost model evaluating risk factors...</p>
         </div>
 
         <div className="space-y-4">
