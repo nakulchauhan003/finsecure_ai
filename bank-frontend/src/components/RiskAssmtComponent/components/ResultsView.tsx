@@ -252,7 +252,7 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
         {/* AI Insight Panel */}
         <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-400/30">
           <h4 className="text-white font-semibold flex items-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-purple-400" />
+            <Brain className="w-5 h-5 text-purple-400" />
             AI Analysis
           </h4>
           {isAiLoading ? (
