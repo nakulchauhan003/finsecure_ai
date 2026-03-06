@@ -271,6 +271,18 @@ app.get('/api/risk/health', async (_req, res) => {
   }
 });
 
+// ML model monitoring (drift detection, PD stats)
+app.get('/api/risk/monitoring', async (_req, res) => {
+  try {
+    const apiRes = await fetch(`${ML_SERVICE_URL}/monitoring`);
+    const data = await apiRes.json();
+    res.json(data);
+  } catch (err) {
+    console.error('Monitoring endpoint error:', err);
+    res.status(500).json({ error: 'ML service unavailable' });
+  }
+});
+
 // ─── Start ───
 app.listen(PORT, () => {
   console.log(`\n🚀 FinSecure AI Backend running on http://localhost:${PORT}`);
@@ -285,5 +297,6 @@ app.listen(PORT, () => {
   console.log(`   POST /api/risk/fraud        — ML fraud detection`);
   console.log(`   GET  /api/risk/model-metadata — Model info`);
   console.log(`   GET  /api/risk/health       — ML service health`);
+  console.log(`   GET  /api/risk/monitoring   — Model drift monitoring`);
   console.log('');
 });

@@ -318,9 +318,32 @@ def train_fraud_model(X):
     )
     iso_forest.fit(X)
     anomaly_labels = iso_forest.predict(X)
+    anomaly_scores = iso_forest.decision_function(X)
     n_anomalies = (anomaly_labels == -1).sum()
     print(f"\nFraud Model: Detected {n_anomalies} anomalies ({n_anomalies/len(X):.2%})")
-    return iso_forest
+
+    # Evaluation metrics (unsupervised — no ground-truth fraud labels)
+    score_min = float(np.percentile(anomaly_scores, 1))
+    score_max = float(np.percentile(anomaly_scores, 99))
+    score_mean = float(np.mean(anomaly_scores))
+    score_std = float(np.std(anomaly_scores))
+    print(f"  Score distribution: mean={score_mean:.4f}, std={score_std:.4f}")
+    print(f"  Score range (P1-P99): [{score_min:.4f}, {score_max:.4f}]")
+    print(f"  Anomaly rate: {n_anomalies/len(X):.2%}")
+    print(f"  False positive estimate: Contamination set to 8% → expect ~{int(len(X)*0.08)} flagged")
+
+    fraud_metrics = {
+        "n_anomalies": int(n_anomalies),
+        "anomaly_rate": round(n_anomalies / len(X), 4),
+        "score_mean": round(score_mean, 4),
+        "score_std": round(score_std, 4),
+        "score_p1": round(score_min, 4),
+        "score_p99": round(score_max, 4),
+        "contamination": 0.08,
+        "n_estimators": 200,
+    }
+
+    return iso_forest, fraud_metrics
 
 
 # ──────────────────────────────────────────────────────────────
@@ -328,7 +351,8 @@ def train_fraud_model(X):
 # ──────────────────────────────────────────────────────────────
 
 def save_artifacts(credit_model, calibrator, fraud_model, encoders,
-                   feature_cols, metrics, best_params, df):
+                   feature_cols, metrics, best_params, df,
+                   fraud_metrics=None):
     """Save all model artifacts."""
     version = "RA-XGB-v3.0"
     train_date = datetime.now().strftime("%Y-%m-%d")
@@ -362,6 +386,7 @@ def save_artifacts(credit_model, calibrator, fraud_model, encoders,
             "moderate": 0.35,
             "aggressive": 0.50,
         },
+        "fraud_model_metrics": fraud_metrics or {},
     }
 
     with open(os.path.join(MODEL_DIR, "model_metadata.json"), "w") as f:
@@ -402,12 +427,13 @@ def main():
         train_credit_model(X, y, feature_cols)
 
     print("\n[4/5] Training Isolation Forest fraud model...")
-    fraud_model = train_fraud_model(X)
+    fraud_model, fraud_metrics = train_fraud_model(X)
 
     print("\n[5/5] Saving model artifacts...")
     save_artifacts(
         credit_model, calibrator, fraud_model, encoders,
         feature_cols, metrics, best_params, df,
+        fraud_metrics=fraud_metrics,
     )
 
     print("\n" + "=" * 60)
