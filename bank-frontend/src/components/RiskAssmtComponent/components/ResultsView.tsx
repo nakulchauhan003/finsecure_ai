@@ -1,5 +1,7 @@
 import React from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Eye, Lock, BarChart3, Sparkles, FileText, X, Brain, User, Target, Info, DollarSign } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Eye, Lock, BarChart3, Sparkles, FileText, X, Brain, User, Target, Info, DollarSign, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import type { ScoringResponse } from '../../../services/riskAssessmentApi';
 import type { AIRiskAnalysis } from '../../../utils/gemini';
 import type { FormData, SalariedFormData, SelfEmployedFormData } from '../types';
@@ -46,6 +48,192 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
   const [showDetail, setShowDetail] = React.useState(false);
   const riskColor = getRiskColor(scoring.risk_category);
   const RiskIcon = getRiskIcon(scoring.risk_category);
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    const now = new Date().toLocaleString();
+
+    // Header
+    doc.setFillColor(30, 27, 75);
+    doc.rect(0, 0, 210, 35, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.text('FinSecure AI — Risk Assessment Report', 14, 18);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${now}  |  Model: ${scoring.model_metadata.model_version}  |  AUC: ${scoring.model_metadata.auc}`, 14, 28);
+
+    let y = 45;
+    doc.setTextColor(0, 0, 0);
+
+    // Decision Banner
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Decision: ${scoring.approved ? 'APPROVED' : 'REJECTED'}`, 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Calibrated PD: ${(scoring.pd * 100).toFixed(2)}%  |  Risk Category: ${scoring.risk_category}  |  Risk Score: ${scoring.risk_score.toFixed(1)}/100`, 14, y);
+    y += 4;
+    doc.text(`Threshold: ${scoring.threshold.risk_appetite} (${(scoring.threshold.pd_cutoff * 100).toFixed(0)}%)  |  Fraud Penalty: ${(scoring.threshold.fraud_penalty * 100).toFixed(2)}%`, 14, y);
+    y += 10;
+
+    // Applicant Info
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Applicant Information', 14, y);
+    y += 2;
+
+    const applicantRows: string[][] = [
+      ['Name', formData.name || '—'],
+      ['Age', formData.age?.toString() || '—'],
+      ['Employment', formData.employmentType === 'salaried' ? 'Salaried' : 'Self-Employed'],
+      ['Credit Score', formData.creditScore?.toString() || '—'],
+      ['Loan Amount', `INR ${parseInt(formData.loanAmount || '0').toLocaleString()}`],
+      ['Previous Defaults', formData.previousDefaults?.toString() || '0'],
+      ['Account Age', `${formData.accountAge} years`],
+    ];
+    if (formData.employmentType === 'salaried') {
+      const s = formData as SalariedFormData;
+      applicantRows.push(['Monthly Salary', `INR ${parseInt(s.monthlySalary || '0').toLocaleString()}`]);
+      applicantRows.push(['Total Expenditure', `INR ${parseInt(s.totalExpenditure || '0').toLocaleString()}`]);
+      applicantRows.push(['Loan Purpose', s.loanPurpose || '—']);
+    } else {
+      const se = formData as SelfEmployedFormData;
+      applicantRows.push(['Gross Revenue', `INR ${parseInt(se.grossRevenue || '0').toLocaleString()}`]);
+      applicantRows.push(['Expected Margin', `${se.expectedMargin}%`]);
+      applicantRows.push(['Business Age', `${se.businessAge} years`]);
+      applicantRows.push(['GST Registered', se.gstRegistered === 'yes' ? 'Yes' : 'No']);
+    }
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Field', 'Value']],
+      body: applicantRows,
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229] },
+      margin: { left: 14 },
+    });
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+
+    // Interest Rate Breakdown
+    if (scoring.interest_rate != null && scoring.rate_breakdown) {
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Interest Rate Pricing', 14, y);
+      y += 2;
+      const rb = scoring.rate_breakdown;
+      autoTable(doc, {
+        startY: y,
+        head: [['Component', 'Value']],
+        body: [
+          ['Base Rate (MCLR)', `${rb.base_rate}%`],
+          [`Credit Grade Premium (${rb.credit_grade})`, `+${rb.grade_premium}%`],
+          ['PD Risk Premium', `+${rb.pd_premium}%`],
+          ['FOIR Adjustment', `${rb.foir_adjustment >= 0 ? '+' : ''}${rb.foir_adjustment}%`],
+          ['Loan Amount Adjustment', `${rb.loan_amount_adjustment >= 0 ? '+' : ''}${rb.loan_amount_adjustment}%`],
+          ['Final Rate', `${scoring.interest_rate}% p.a.`],
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [79, 70, 229] },
+        margin: { left: 14 },
+      });
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+    }
+
+    // Financial Ratios
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Financial Ratios', 14, y);
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      head: [['Ratio', 'Value']],
+      body: [
+        ['DTI Ratio', scoring.financial_ratios.dti_ratio.toFixed(4)],
+        ['FOIR', scoring.financial_ratios.foir.toFixed(4)],
+        ['Loan-to-Income', scoring.financial_ratios.loan_to_income.toFixed(4)],
+        ['DSCR', scoring.financial_ratios.dscr.toFixed(4)],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229] },
+      margin: { left: 14 },
+    });
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+
+    // SHAP Analysis
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SHAP Feature Analysis (Top Contributors)', 14, y);
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      head: [['Feature', 'SHAP Value', 'Impact', 'Description']],
+      body: scoring.shap_values.map(sv => [
+        sv.feature,
+        sv.shap_value.toFixed(4),
+        sv.impact,
+        sv.description,
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229] },
+      margin: { left: 14 },
+      columnStyles: { 3: { cellWidth: 70 } },
+    });
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+
+    // Fraud Detection
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Fraud Detection', 14, y);
+    y += 7;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Anomaly Score: ${scoring.fraud.anomaly_score.toFixed(4)}  |  Is Anomaly: ${scoring.fraud.is_anomaly ? 'Yes' : 'No'}  |  Fraud Probability: ${(scoring.fraud.probability * 100).toFixed(2)}%`, 14, y);
+    y += 6;
+    if (scoring.fraud.flags.length > 0) {
+      autoTable(doc, {
+        startY: y,
+        head: [['Severity', 'Flag']],
+        body: scoring.fraud.flags.map(f => [f.severity.toUpperCase(), f.message]),
+        theme: 'striped',
+        headStyles: { fillColor: [220, 38, 38] },
+        margin: { left: 14 },
+      });
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+    } else {
+      doc.text('No fraud flags detected.', 14, y);
+      y += 10;
+    }
+
+    // AI Insight
+    if (aiInsight) {
+      if (y > 230) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('AI Analysis', 14, y);
+      y += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      const aiText = typeof aiInsight === 'object'
+        ? JSON.stringify(aiInsight, null, 2)
+        : String(aiInsight);
+      const lines = doc.splitTextToSize(aiText, 180);
+      doc.text(lines.slice(0, 40), 14, y); // cap at 40 lines
+    }
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`FinSecure AI  |  ${scoring.model_metadata.model_version}  |  Page ${i}/${pageCount}`, 14, 290);
+    }
+
+    doc.save(`FinSecure_Risk_Report_${formData.name || 'applicant'}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
 
   return (
     <div className="space-y-6">
@@ -347,6 +535,11 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
           className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg flex items-center gap-3 hover:scale-105">
           <FileText className="w-6 h-6" />
           {showDetail ? 'Hide Detail' : 'View Detailed Breakdown'}
+        </button>
+        <button onClick={generatePDF}
+          className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg flex items-center gap-3 hover:scale-105">
+          <Download className="w-6 h-6" />
+          Export to PDF
         </button>
         <button onClick={onReset}
           className="bg-white/10 hover:bg-white/20 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all flex items-center gap-3">

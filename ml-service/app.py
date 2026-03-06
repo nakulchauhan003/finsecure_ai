@@ -57,7 +57,20 @@ try:
     )
     if os.path.exists(_train_sample_path):
         _cal_df = pd.read_csv(_train_sample_path)
-        # Use only the model's feature columns (they must exist in sample)
+
+        # The training sample has raw columns — encode them to match model features
+        _grade_map = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5, "G": 6}
+        _cal_df["loan_grade_enc"] = _cal_df["loan_grade"].map(_grade_map)
+        _cal_df["cb_default_enc"] = (_cal_df["cb_person_default_on_file"] == "Y").astype(int)
+        _cal_df["home_ownership_enc"] = encoders["home_ownership"].transform(
+            _cal_df["person_home_ownership"])
+        _cal_df["loan_intent_enc"] = encoders["loan_intent"].transform(
+            _cal_df["loan_intent"])
+        _cal_df["income_to_loan"] = _cal_df["person_income"] / np.maximum(_cal_df["loan_amnt"], 1)
+        _cal_df["age_emp_ratio"] = _cal_df["person_emp_length"] / np.maximum(_cal_df["person_age"], 1)
+        _cal_df["rate_grade_interaction"] = _cal_df["loan_int_rate"] * _cal_df["loan_grade_enc"]
+        _cal_df["cred_hist_per_age"] = _cal_df["cb_person_cred_hist_length"] / np.maximum(_cal_df["person_age"], 1)
+
         _cal_features = _cal_df[model_metadata["feature_columns"]]
         _cal_scores = fraud_model.decision_function(_cal_features)
         FRAUD_SCORE_MIN = float(np.percentile(_cal_scores, 1))   # deepest anomaly
@@ -94,6 +107,21 @@ except Exception as e:
 MONITOR_WINDOW = 500  # rolling window size
 _prediction_log = deque(maxlen=MONITOR_WINDOW)
 _baseline_stats = {"mean_pd": None, "approval_rate": None, "recorded_at": None}
+
+# ── Input Feature Drift Tracking ──
+# Tracks rolling statistics (mean, std, min, max) for key input features.
+# Compares against a baseline snapshot to detect distribution shifts.
+
+TRACKED_FEATURES = ["credit_score", "monthly_income", "loan_amount", "account_age"]
+FEATURE_DRIFT_THRESHOLDS = {
+    "credit_score":   {"mean_shift": 30, "std_ratio": 1.5},
+    "monthly_income": {"mean_shift": 15000, "std_ratio": 1.5},
+    "loan_amount":    {"mean_shift": 100000, "std_ratio": 1.5},
+    "account_age":    {"mean_shift": 3, "std_ratio": 1.5},
+}
+
+_feature_log: dict[str, deque] = {f: deque(maxlen=MONITOR_WINDOW) for f in TRACKED_FEATURES}
+_feature_baseline: dict[str, dict] = {}  # populated after first 50 predictions
 
 
 # --- Pydantic Schemas (unchanged — frontend compatible) ---
@@ -635,16 +663,41 @@ async def score_application(req: ScoringRequest):
             "anomaly_score": anomaly_score,
             "ts": datetime.now(timezone.utc).isoformat(),
         })
+
+        # Record input features for drift tracking
+        for feat in TRACKED_FEATURES:
+            if feat in data:
+                _feature_log[feat].append(float(data[feat]))
+        # Also track FOIR as a derived feature
+        if "foir" not in _feature_log:
+            _feature_log["foir"] = deque(maxlen=MONITOR_WINDOW)
+            TRACKED_FEATURES.append("foir")
+            FEATURE_DRIFT_THRESHOLDS["foir"] = {"mean_shift": 0.1, "std_ratio": 1.5}
+        _feature_log["foir"].append(round(foir, 4))
+
+        n_logged = len(_prediction_log)
+
         # Snapshot baseline on the first batch
-        if _baseline_stats["mean_pd"] is None and len(_prediction_log) >= 50:
+        if _baseline_stats["mean_pd"] is None and n_logged >= 50:
             _baseline_stats["mean_pd"] = float(np.mean([p["pd"] for p in _prediction_log]))
             _baseline_stats["approval_rate"] = float(np.mean([p["approved"] for p in _prediction_log]))
             _baseline_stats["recorded_at"] = datetime.now(timezone.utc).isoformat()
             logger.info(f"Monitoring baseline set: mean_PD={_baseline_stats['mean_pd']:.4f}, "
                         f"approval_rate={_baseline_stats['approval_rate']:.2%}")
+            # Capture feature baselines
+            for feat in TRACKED_FEATURES:
+                vals = list(_feature_log[feat])
+                if vals:
+                    _feature_baseline[feat] = {
+                        "mean": float(np.mean(vals)),
+                        "std": float(np.std(vals)),
+                        "min": float(np.min(vals)),
+                        "max": float(np.max(vals)),
+                    }
+            logger.info(f"Feature baselines set for: {list(_feature_baseline.keys())}")
 
         # Drift check (every 50 predictions once baseline exists)
-        if _baseline_stats["mean_pd"] is not None and len(_prediction_log) % 50 == 0:
+        if _baseline_stats["mean_pd"] is not None and n_logged % 50 == 0:
             current_mean_pd = float(np.mean([p["pd"] for p in _prediction_log]))
             current_approval = float(np.mean([p["approved"] for p in _prediction_log]))
             pd_drift = abs(current_mean_pd - _baseline_stats["mean_pd"])
@@ -658,6 +711,20 @@ async def score_application(req: ScoringRequest):
                     f"APPROVAL RATE DRIFT: "
                     f"baseline={_baseline_stats['approval_rate']:.2%}, "
                     f"current={current_approval:.2%}")
+            # Check feature drift
+            for feat, baseline in _feature_baseline.items():
+                vals = list(_feature_log[feat])
+                if len(vals) < 10:
+                    continue
+                cur_mean = float(np.mean(vals))
+                cur_std = float(np.std(vals))
+                thresholds = FEATURE_DRIFT_THRESHOLDS.get(feat, {"mean_shift": 999, "std_ratio": 999})
+                mean_shift = abs(cur_mean - baseline["mean"])
+                std_ratio = cur_std / max(baseline["std"], 1e-6)
+                if mean_shift > thresholds["mean_shift"] or std_ratio > thresholds["std_ratio"]:
+                    logger.warning(
+                        f"FEATURE DRIFT [{feat}]: mean {baseline['mean']:.2f} → {cur_mean:.2f} "
+                        f"(shift={mean_shift:.2f}), std ratio={std_ratio:.2f}")
 
         return {
             "pd": round(effective_pd, 4),
@@ -754,7 +821,7 @@ async def monitoring_stats():
         "baseline": _baseline_stats,
     }
 
-    # Compute drift if baseline exists
+    # Compute output drift if baseline exists
     if _baseline_stats["mean_pd"] is not None:
         current["drift"] = {
             "pd_shift": round(abs(float(np.mean(pds)) - _baseline_stats["mean_pd"]), 4),
@@ -763,5 +830,38 @@ async def monitoring_stats():
             "pd_alert": abs(float(np.mean(pds)) - _baseline_stats["mean_pd"]) > 0.02,
             "approval_alert": abs(float(np.mean(approvals)) - _baseline_stats["approval_rate"]) > 0.05,
         }
+
+    # Input feature drift
+    feature_drift = {}
+    for feat in TRACKED_FEATURES:
+        vals = list(_feature_log.get(feat, []))
+        if not vals:
+            feature_drift[feat] = {"status": "no_data"}
+            continue
+        cur_mean = float(np.mean(vals))
+        cur_std = float(np.std(vals))
+        entry: dict = {
+            "current_mean": round(cur_mean, 2),
+            "current_std": round(cur_std, 2),
+            "current_min": round(float(np.min(vals)), 2),
+            "current_max": round(float(np.max(vals)), 2),
+            "n_samples": len(vals),
+        }
+        if feat in _feature_baseline:
+            bl = _feature_baseline[feat]
+            thresholds = FEATURE_DRIFT_THRESHOLDS.get(feat, {"mean_shift": 999, "std_ratio": 999})
+            mean_shift = abs(cur_mean - bl["mean"])
+            std_ratio = cur_std / max(bl["std"], 1e-6)
+            is_drifted = mean_shift > thresholds["mean_shift"] or std_ratio > thresholds["std_ratio"]
+            entry["baseline_mean"] = round(bl["mean"], 2)
+            entry["baseline_std"] = round(bl["std"], 2)
+            entry["mean_shift"] = round(mean_shift, 2)
+            entry["std_ratio"] = round(std_ratio, 2)
+            entry["status"] = "drift" if is_drifted else "stable"
+        else:
+            entry["status"] = "awaiting_baseline"
+        feature_drift[feat] = entry
+
+    current["feature_drift"] = feature_drift
 
     return current
