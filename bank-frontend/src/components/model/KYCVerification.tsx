@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { performOCR } from '../../utils/cloudVision';
-import { askGeminiJSON } from '../../utils/gemini';
+import { askAIJSON } from '../../utils/ai';
 
 interface KYCFormData {
   fullName: string;
@@ -72,13 +72,13 @@ async function realOCR(file: File): Promise<OCRResult> {
   }
 }
 
-// AI-powered KYC verification using Gemini
+// AI-powered KYC verification using AI
 async function aiKYCVerification(data: KYCFormData, ocrFields: OCRResult[]): Promise<VerificationResult> {
   const aadhaarValid = validateAadhaar(data.aadhaarNumber);
   const panValid = validatePAN(data.panNumber);
 
   try {
-    const result = await askGeminiJSON<{
+    const result = await askAIJSON<{
       riskFlags: string[];
       overall: 'approved' | 'rejected' | 'manual_review';
       aadhaarConfidence: number;
@@ -138,7 +138,7 @@ Return JSON:
       timestamp: new Date().toISOString(),
     };
   } catch (err) {
-    console.error('Gemini KYC verification failed, using local fallback:', err);
+    console.error('AI KYC verification failed, using local fallback:', err);
     // Fallback to local verification
     return localKYCVerification(data);
   }

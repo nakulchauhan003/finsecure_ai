@@ -23,7 +23,7 @@ import {
   type CounterfactualResponse,
   type GlobalInsightsResponse,
 } from '../../services/loanExplainabilityApi';
-import { explainLoanDecision, type AILoanExplanation } from '../../utils/gemini';
+import { explainLoanDecision, type AILoanExplanation } from '../../utils/ai';
 
 type RiskAssessmentContext = {
   applicantId?: string;
@@ -271,7 +271,7 @@ export default function LoanExplainabilityDashboard() {
           model_metadata: modelMetadata,
           financial_ratios: prediction.financial_ratios,
           lime_weights: lime?.lime_weights,
-          gemini_explanation: aiExplanation?.narrativeExplanation,
+          AI_explanation: aiExplanation?.narrativeExplanation,
         }),
       });
       
@@ -650,7 +650,7 @@ export default function LoanExplainabilityDashboard() {
             )}
 
             <div className="rounded-xl border border-purple-400/30 bg-purple-500/10 p-4">
-              <h3 className="font-semibold mb-2 flex items-center gap-2"><Sparkles size={16} /> Gemini Narrative</h3>
+              <h3 className="font-semibold mb-2 flex items-center gap-2"><Sparkles size={16} /> AI Narrative</h3>
               {aiExplanation ? (
                 <p className="text-sm text-purple-100">{aiExplanation.narrativeExplanation}</p>
               ) : (

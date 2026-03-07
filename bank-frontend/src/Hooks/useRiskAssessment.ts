@@ -6,7 +6,7 @@ import {
   type ScoringResponse,
   type ModelMetadataFull,
 } from '../services/riskAssessmentApi';
-import { analyzeRisk, type AIRiskAnalysis } from '../utils/gemini';
+import { analyzeRisk, type AIRiskAnalysis } from '../utils/ai';
 import { supabase } from '../lib/supabase';
 
 export type RiskAppetite = 'conservative' | 'moderate' | 'aggressive';

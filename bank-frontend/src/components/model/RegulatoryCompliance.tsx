@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-import { checkCompliance, type AIComplianceResult } from '../../utils/gemini';
+import { checkCompliance, type AIComplianceResult } from '../../utils/ai';
 
 interface LoanDecision {
   loanAmount: number;
@@ -221,14 +221,14 @@ export default function RegulatoryCompliance() {
     setChecks(results);
     setShowResults(true);
 
-    // Fire Gemini AI check in background
+    // Fire AI AI check in background
     setAiLoading(true);
     setAiCompliance(null);
     checkCompliance(loanData as unknown as Record<string, unknown>).then(result => {
       setAiCompliance(result);
       setAiLoading(false);
     }).catch(err => {
-      console.error('Gemini compliance check failed:', err);
+      console.error('AI compliance check failed:', err);
       setAiLoading(false);
     });
   };
@@ -338,10 +338,10 @@ export default function RegulatoryCompliance() {
 
           {/* Charts row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Gemini AI Compliance Insight */}
+            {/* AI AI Compliance Insight */}
             <div className="md:col-span-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-5">
               <h3 className="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
-                ✨ Gemini AI Regulatory Analysis
+                ✨ AI AI Regulatory Analysis
               </h3>
               {aiLoading ? (
                 <div className="flex items-center gap-2 text-purple-300 text-sm">

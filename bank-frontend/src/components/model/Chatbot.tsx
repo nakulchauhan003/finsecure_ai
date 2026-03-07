@@ -4,12 +4,12 @@ import {
   Search, ShieldCheck, Percent, UserCheck,
   CheckCircle, XCircle, AlertCircle, ExternalLink
 } from 'lucide-react';
-import { chatWithAdvisor, askGeminiWithSearch, askGeminiJSON } from '../../utils/gemini';
+import { chatWithAdvisor, askAIWithSearch, askAIJSON } from '../../utils/ai';
 
 // --- API Helper Functions ---
 
 /**
- * Fetches structured bank data using Gemini API with Google Search.
+ * Fetches structured bank data using AI API with Google Search.
  */
 async function fetchCompetitorData(userQuery: string) {
   const systemPrompt = `You are a specialized banking assistant. The user is asking about a bank's product, interest rate, or other financial data.
@@ -32,7 +32,7 @@ Format your response as JSON with this structure:
 IMPORTANT: Return ONLY valid JSON. No markdown, no code fences.`;
 
   try {
-    const responseText = await askGeminiWithSearch(userQuery, systemPrompt);
+    const responseText = await askAIWithSearch(userQuery, systemPrompt);
     // Try to parse JSON
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -97,8 +97,8 @@ const AIChatbot = () => {
     try {
       if (lowerMsg.includes('profile') || lowerMsg.includes('customer') || lowerMsg.includes('account')) {
         const customerId = lowerMsg.match(/\d{6,}/)?.[0] || '987654';
-        // Use Gemini to generate a realistic customer profile
-        const profileData = await askGeminiJSON(`Generate a realistic Indian bank customer profile for customer ID ${customerId}. Return JSON:
+        // Use AI to generate a realistic customer profile
+        const profileData = await askAIJSON(`Generate a realistic Indian bank customer profile for customer ID ${customerId}. Return JSON:
 { "id": "${customerId}", "name": "...", "kycStatus": "Verified|Pending", "memberSince": "Mon DD, YYYY", "contact": "+91-...", "email": "...", "products": ["Savings Account", ...] }`,
           'You are an Indian banking system. Generate realistic but fictional customer data.');
         response.text = `Fetching profile for customer ID ${customerId}...`;
@@ -106,7 +106,7 @@ const AIChatbot = () => {
       } 
       else if (lowerMsg.includes('risk') || lowerMsg.includes('analyze') || lowerMsg.includes('underwrite')) {
         const appId = lowerMsg.match(/[A-Z0-9-]{5,}/i)?.[0] || 'APP-456-B';
-        const riskData = await askGeminiJSON(`Run a risk assessment for loan application ${appId}. Return JSON:
+        const riskData = await askAIJSON(`Run a risk assessment for loan application ${appId}. Return JSON:
 { "appId": "${appId}", "applicantScore": <600-850>, "dtiRatio": <0.1-0.6>, "collateral": "Sufficient|Insufficient", "recommendation": "Approve|Reject|Review", "keyFactors": [{"name": "...", "status": "positive|negative|neutral"}] }`,
           'You are an Indian bank risk analysis AI.');
         response.text = `Running AI risk assessment for application ${appId}...`;
@@ -137,7 +137,7 @@ const AIChatbot = () => {
         response.text = "As an internal assistant powered by AI, I can help you with:\n\n✓ Look up Customer Profiles (e.g., 'profile for 123456')\n✓ Analyze Risk for Applications (e.g., 'analyze risk for APP-101')\n✓ Check Internal Product Rates (e.g., 'our home loan rates')\n✓ Fetch Competitor Rates via Google Search (e.g., 'SBI personal loan rate')\n✓ Ask me anything about banking, compliance, or finance!";
       } 
       else {
-        // General AI chat — use Gemini for any banking question
+        // General AI chat — use AI for any banking question
         const aiResponse = await chatWithAdvisor(userMessage);
         response.text = aiResponse;
       }

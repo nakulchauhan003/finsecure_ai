@@ -12,7 +12,7 @@ import {
   FileText,
   X
 } from 'lucide-react';
-import { predictInterestRate, AIRatePrediction } from '../../utils/gemini';
+import { predictInterestRate, AIRatePrediction } from '../../utils/ai';
 
 interface PredictionResult {
   rate: number;
@@ -118,7 +118,7 @@ function App() {
 
       setIsLoading(false);
 
-      // Fire Gemini AI prediction in background
+      // Fire AI AI prediction in background
       setAiLoading(true);
       setAiPrediction(null);
       predictInterestRate({

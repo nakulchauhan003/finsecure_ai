@@ -1,7 +1,7 @@
 import { useState, useEffect, ReactNode, useMemo } from 'react';
 // Import Alpha Vantage service
 import { fetchLiveMarketData as fetchMarketStackData } from '../../services/marketstack';
-import { chatWithAdvisor, getInvestmentAdvice } from '../../utils/gemini';
+import { chatWithAdvisor, getInvestmentAdvice } from '../../utils/ai';
 import { 
   Line, PieChart, Pie, Cell, XAxis, YAxis, 
   CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart

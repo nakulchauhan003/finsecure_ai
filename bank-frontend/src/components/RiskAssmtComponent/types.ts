@@ -1,5 +1,5 @@
 import type { ScoringResponse } from '../../services/riskAssessmentApi';
-import type { AIRiskAnalysis } from '../../utils/gemini';
+import type { AIRiskAnalysis } from '../../utils/ai';
 import type { RiskAppetite, WizardStage, EmploymentType, BusinessType } from '../../Hooks/useRiskAssessment';
 
 export type { RiskAppetite, WizardStage, EmploymentType, BusinessType };

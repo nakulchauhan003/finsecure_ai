@@ -10,7 +10,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
-import { analyzeFraud, AIFraudAnalysis } from '../../utils/gemini';
+import { analyzeFraud, AIFraudAnalysis } from '../../utils/ai';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://bvsvixkgcbslhrgdkikm.supabase.co';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
