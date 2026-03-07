@@ -8,6 +8,8 @@ import os
 import json
 import logging
 import importlib
+import base64
+import binascii
 import numpy as np
 import pandas as pd
 import joblib
@@ -204,6 +206,13 @@ class CounterfactualRequest(BaseModel):
     applicant_id: Optional[str] = None
     target: Literal["approve", "reject"] = Field(default="approve")
     features: PredictLoanRequest
+
+
+class SignatureVerifyRequest(BaseModel):
+    """Request model for signature verification using base64-encoded images."""
+    reference_image: str = Field(description="Reference signature image as base64 or data URL")
+    test_image: str = Field(description="Test signature image as base64 or data URL")
+    threshold: float = Field(default=70.0, ge=0.0, le=100.0)
 
 
 # --- FastAPI App ---
@@ -676,6 +685,30 @@ def _predict_default_proba_matrix(matrix: np.ndarray) -> np.ndarray:
         calibrated = np.array(isotonic_calibrator.transform(raw_pd.tolist()))
         return np.vstack([1 - calibrated, calibrated]).T
     return np.vstack([1 - raw_pd, raw_pd]).T
+
+
+def _decode_image_b64(payload: str) -> bytes:
+    """Decode a base64 string or data URL into raw bytes."""
+    raw = payload.split(",", 1)[1] if "," in payload else payload
+    try:
+        return base64.b64decode(raw, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid base64 image payload: {exc}")
+
+
+def _normalized_byte_histogram(image_bytes: bytes) -> np.ndarray:
+    """Create a normalized 256-bin histogram from raw bytes.
+
+    This keeps the endpoint lightweight without additional imaging dependencies.
+    """
+    arr = np.frombuffer(image_bytes, dtype=np.uint8)
+    if arr.size == 0:
+        raise HTTPException(status_code=400, detail="Uploaded image is empty")
+    hist = np.bincount(arr, minlength=256).astype(np.float64)
+    total = hist.sum()
+    if total <= 0:
+        raise HTTPException(status_code=400, detail="Could not compute image features")
+    return hist / total
 
 
 # --- API Endpoints ---
@@ -1169,6 +1202,46 @@ async def fraud_score(req: FraudRequest):
             "anomaly_score": round(anomaly_score, 4),
             "flags": flags,
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/verify_signature")
+async def verify_signature(req: SignatureVerifyRequest):
+    """Verify two signatures and return similarity-style scores.
+
+    This endpoint mirrors the response style used by the external signature-verification
+    project while remaining dependency-light for this codebase.
+    """
+    try:
+        reference_bytes = _decode_image_b64(req.reference_image)
+        test_bytes = _decode_image_b64(req.test_image)
+
+        ref_hist = _normalized_byte_histogram(reference_bytes)
+        test_hist = _normalized_byte_histogram(test_bytes)
+
+        denom = float(np.linalg.norm(ref_hist) * np.linalg.norm(test_hist))
+        if denom == 0.0:
+            cosine_similarity = 0.0
+        else:
+            cosine_similarity = float(np.dot(ref_hist, test_hist) / denom)
+
+        similarity = max(0.0, min(100.0, cosine_similarity * 100.0))
+        distance = max(0.0, min(1.0, 1.0 - cosine_similarity))
+        is_genuine = similarity >= req.threshold
+        confidence = similarity if is_genuine else (100.0 - similarity)
+
+        return {
+            "distance": round(distance, 6),
+            "similarity": round(similarity, 2),
+            "threshold": round(req.threshold, 2),
+            "is_genuine": bool(is_genuine),
+            "confidence": round(confidence, 2),
+            "verdict": "GENUINE" if is_genuine else "FORGED",
+            "method": "byte_histogram_cosine",
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

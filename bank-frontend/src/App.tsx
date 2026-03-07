@@ -25,6 +25,7 @@ const BlockchainPage = lazy(() => import("./pages/blockchainPage"));
 const SecurityPage = lazy(() => import("./pages/securityPage"));
 const ReportPage = lazy(() => import("./pages/reportPage"));
 const GamePage = lazy(() => import("./pages/gamePage"));
+const SignatureVerificationPage = lazy(() => import("./pages/signatureVerificationPage"));
 
 export default function App() {
   return (
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="/dashboard/compliance" element={<CompliancePage/>}/>
           <Route path="/dashboard/blockchain" element={<BlockchainPage/>}/>
           <Route path="/dashboard/security" element={<SecurityPage/>}/>
+          <Route path="/dashboard/signature-verification" element={<SignatureVerificationPage/>}/>
           <Route path="/dashboard/reports" element={<ReportPage/>}/>
           <Route path="/dashboard/game" element={<GamePage/>}/>
         </Routes>

@@ -361,6 +361,31 @@ app.post('/api/risk/fraud', async (req, res) => {
   }
 });
 
+app.post('/api/signature/verify', async (req, res) => {
+  try {
+    const { response, data } = await fetchWithTimeout(
+      `${ML_SERVICE_URL}/verify_signature`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body),
+      },
+      15000,
+    );
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data.detail || data.error || 'Signature verification error',
+        details: data,
+      });
+    }
+
+    return res.json(data);
+  } catch {
+    return res.status(503).json({ error: 'Signature verification service unavailable' });
+  }
+});
+
 app.get('/api/risk/model-metadata', async (_req, res) => {
   try {
     const { data } = await fetchWithTimeout(`${ML_SERVICE_URL}/model_metadata`, {}, 8000);

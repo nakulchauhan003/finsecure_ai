@@ -143,6 +143,14 @@ export default function DashBoardOptionBar(){
                     <div>Security & RBAC</div>
                 </div>
             </Link>
+            <Link to={'/dashboard/signature-verification'}>
+                <div className={`DashboardOptions ${location.pathname==='/dashboard/signature-verification'?"dashboardOptionColor":""}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 19.5h16.5M6.75 16.5l7.5-7.5 3 3-7.5 7.5h-3v-3Z" />
+                    </svg>
+                    <div>Signature Verify</div>
+                </div>
+            </Link>
             <Link to={'/dashboard/reports'}>
                 <div className={`DashboardOptions ${location.pathname==='/dashboard/reports'?"dashboardOptionColor":""}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
