@@ -2,6 +2,7 @@ import React from 'react';
 import { CheckCircle, AlertTriangle, XCircle, Eye, Lock, BarChart3, Sparkles, FileText, X, Brain, User, Target, Info, DollarSign, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useNavigate } from 'react-router-dom';
 import type { ScoringResponse } from '../../../services/riskAssessmentApi';
 import type { AIRiskAnalysis } from '../../../utils/gemini';
 import type { FormData, SalariedFormData, SelfEmployedFormData } from '../types';
@@ -46,8 +47,37 @@ function getRiskColorClasses(color: string) {
 
 export default function ResultsView({ scoring, formData, aiInsight, isAiLoading, onReset }: Props) {
   const [showDetail, setShowDetail] = React.useState(false);
+  const navigate = useNavigate();
   const riskColor = getRiskColor(scoring.risk_category);
   const RiskIcon = getRiskIcon(scoring.risk_category);
+
+  const openExplainabilityDashboard = () => {
+    const annualIncome = formData.employmentType === 'salaried'
+      ? Number((formData as SalariedFormData).monthlySalary || 0) * 12
+      : Number((formData as SelfEmployedFormData).grossRevenue || 0);
+
+    const term = formData.employmentType === 'salaried'
+      ? Number((formData as SalariedFormData).applicationDuration || 36)
+      : Number((formData as SelfEmployedFormData).applicationPeriod || 36);
+
+    const payload = {
+      applicantId: formData.name || `APP-${Date.now()}`,
+      name: formData.name,
+      employmentType: formData.employmentType,
+      creditScore: formData.creditScore,
+      annualIncome,
+      loanAmount: Number(formData.loanAmount || 0),
+      term,
+      decision: scoring.approved ? 'approved' : 'rejected',
+      approvalProbability: scoring.approval_probability,
+      pd: scoring.pd,
+      shapValues: scoring.shap_values,
+      modelMetadata: scoring.model_metadata,
+    };
+
+    localStorage.setItem('finsecure.latest_risk_assessment', JSON.stringify(payload));
+    navigate('/dashboard/ELR');
+  };
 
   const generatePDF = () => {
     const doc = new jsPDF();
@@ -304,6 +334,22 @@ export default function ResultsView({ scoring, formData, aiInsight, isAiLoading,
             Risk appetite: <strong>{scoring.threshold.risk_appetite}</strong> (PD cutoff: {(scoring.threshold.pd_cutoff * 100).toFixed(0)}%)
             {scoring.threshold.fraud_penalty > 0 && ` | Fraud penalty applied: +${(scoring.threshold.fraud_penalty * 100).toFixed(1)}%`}
           </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={openExplainabilityDashboard}
+              className="px-4 py-2 rounded-lg bg-indigo-500/30 hover:bg-indigo-500/40 border border-indigo-400/40 text-indigo-100 text-sm"
+            >
+              Explain Decision
+            </button>
+            <button
+              type="button"
+              onClick={onReset}
+              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/30 text-white text-sm"
+            >
+              New Assessment
+            </button>
+          </div>
         </div>
       </div>
 

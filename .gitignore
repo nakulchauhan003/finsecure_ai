@@ -1,5 +1,25 @@
 /.turbo
 node_modules/
+node_modules_old/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# ML/Data files
+ml-service/data/
+ml-service/data2/
+ml-service/models/*.joblib
+ml-service/models/*.pkl
+ml-service/models/*.bin
+*.csv
 
 # Secrets — NEVER commit
 credentials.json

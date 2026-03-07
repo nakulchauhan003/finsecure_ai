@@ -134,7 +134,7 @@ const AIChatbot = () => {
         response.card = apiResponse.card;
       } 
       else if (lowerMsg.includes('help') || lowerMsg.includes('what can you')) {
-        response.text = "As an internal assistant powered by Gemini AI, I can help you with:\n\n✓ Look up Customer Profiles (e.g., 'profile for 123456')\n✓ Analyze Risk for Applications (e.g., 'analyze risk for APP-101')\n✓ Check Internal Product Rates (e.g., 'our home loan rates')\n✓ Fetch Competitor Rates via Google Search (e.g., 'SBI personal loan rate')\n✓ Ask me anything about banking, compliance, or finance!";
+        response.text = "As an internal assistant powered by AI, I can help you with:\n\n✓ Look up Customer Profiles (e.g., 'profile for 123456')\n✓ Analyze Risk for Applications (e.g., 'analyze risk for APP-101')\n✓ Check Internal Product Rates (e.g., 'our home loan rates')\n✓ Fetch Competitor Rates via Google Search (e.g., 'SBI personal loan rate')\n✓ Ask me anything about banking, compliance, or finance!";
       } 
       else {
         // General AI chat — use Gemini for any banking question

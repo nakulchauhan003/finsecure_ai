@@ -442,7 +442,7 @@ const InvestmentPlansDashboard = () => {
       ];
       setAiInsights(insights);
 
-      // Enhance with real Gemini AI insight
+      // Enhance with AI insight
       getInvestmentAdvice({
         name: userProfile.name,
         age: userProfile.age,
@@ -455,7 +455,7 @@ const InvestmentPlansDashboard = () => {
         const aiInsight: Insight = {
           type: 'ai-recommendation',
           icon: <Brain className="w-5 h-5" />,
-          title: 'Gemini AI Portfolio Strategy',
+          title: 'AI Portfolio Strategy',
           message: advice.recommendation + (advice.tips?.[0] ? ` Tip: ${advice.tips[0]}` : ''),
           confidence: 0.93,
           priority: 'high' as const,

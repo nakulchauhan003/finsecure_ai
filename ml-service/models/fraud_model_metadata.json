@@ -1,0 +1,84 @@
+{
+  "model_type": "Isolation Forest (Unsupervised Anomaly Detection)",
+  "model_version": "FRAUD-IF-v2.0",
+  "train_date": "2026-03-06 19:15:39",
+  "training_samples": 1066705,
+  "test_samples": 266677,
+  "n_features": 35,
+  "feature_names": [
+    "log_amount",
+    "normalized_amount",
+    "time_hour",
+    "V1",
+    "V2",
+    "V3",
+    "V4",
+    "V5",
+    "V6",
+    "V7",
+    "V8",
+    "V9",
+    "V10",
+    "V11",
+    "V12",
+    "V13",
+    "V14",
+    "V15",
+    "V16",
+    "V17",
+    "V18",
+    "V19",
+    "V20",
+    "V21",
+    "V22",
+    "V23",
+    "V24",
+    "V25",
+    "V26",
+    "V27",
+    "V28",
+    "log_amount_squared",
+    "amount_to_mean_ratio",
+    "log_amount_zscore",
+    "time_hour_zscore"
+  ],
+  "feature_scale": "StandardScaler (mean=0, std=1)",
+  "metrics": {
+    "test_roc_auc": 0.7597461033141993,
+    "anomalies_detected": 13284,
+    "anomaly_rate": 0.04981306974354744
+  },
+  "score_distribution": {
+    "min": -0.23808188534559982,
+    "max": 0.2103228001395508,
+    "mean": 0.1615284251268559,
+    "std": 0.07519977715916325,
+    "p1": -0.061321661759979634,
+    "p99": 0.20919749660689885
+  },
+  "thresholds": {
+    "fraud_risk_scoring": {
+      "name": "fraud_probability",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "conservative": 0.3,
+      "moderate": 0.5,
+      "aggressive": 0.7
+    }
+  },
+  "notes": [
+    "Isolation Forest is unsupervised \u2014 detects anomalies, not necessarily fraud",
+    "Fraud probabilities are normalized anomaly scores: P = (score_max - anom_score) / range",
+    "Use 'moderate' threshold (0.50) for balanced operation",
+    "Retraining recommended monthly or when performance degrades",
+    "For supervised fraud detection, label a sample of 1000+ transactions and retrain XGBoost"
+  ],
+  "hyperparameters": {
+    "n_estimators": 300,
+    "contamination": 0.05,
+    "max_samples": "auto",
+    "random_state": 42
+  }
+}

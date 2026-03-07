@@ -8,10 +8,12 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.98.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "express-rate-limit": "^8.2.1",
     "google-auth-library": "^9.14.0",
-    "helmet": "^8.1.0"
+    "helmet": "^8.1.0",
+    "pdfkit": "^0.17.2"
   }
 }

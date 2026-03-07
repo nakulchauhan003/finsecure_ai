@@ -395,16 +395,16 @@ function App() {
                   </div>
                 )}
 
-                {/* Gemini AI Rate Prediction */}
+                {/* AI Rate Prediction */}
                 <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg p-6 border border-purple-500/30">
                   <h3 className="text-lg font-semibold text-purple-200 mb-3 flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-purple-400" />
-                    Gemini AI Prediction
+                    AI Prediction
                   </h3>
                   {aiLoading ? (
                     <div className="flex items-center gap-2 text-purple-300 text-sm">
                       <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                      Running Gemini AI analysis...
+                      Running AI analysis...
                     </div>
                   ) : aiPrediction ? (
                     <div className="space-y-3">

@@ -7,11 +7,17 @@ Maps frontend application fields → model feature space (15 features).
 import os
 import json
 import logging
+import importlib
 import numpy as np
 import pandas as pd
 import joblib
 import xgboost as xgb
 import shap
+try:
+    _lime_module = importlib.import_module("lime.lime_tabular")
+    LimeTabularExplainer = getattr(_lime_module, "LimeTabularExplainer")
+except Exception:
+    LimeTabularExplainer = None
 from collections import deque
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
@@ -26,6 +32,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("finsecure_ml")
+HAS_LIME = LimeTabularExplainer is not None
 
 # --- Load model artifacts ---
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
@@ -55,6 +62,7 @@ try:
     _train_sample_path = os.path.join(
         os.path.dirname(__file__), "data", "training_sample.csv"
     )
+    lime_background_data = None
     if os.path.exists(_train_sample_path):
         _cal_df = pd.read_csv(_train_sample_path)
 
@@ -72,6 +80,7 @@ try:
         _cal_df["cred_hist_per_age"] = _cal_df["cb_person_cred_hist_length"] / np.maximum(_cal_df["person_age"], 1)
 
         _cal_features = _cal_df[model_metadata["feature_columns"]]
+        lime_background_data = _cal_features.values
         _cal_scores = fraud_model.decision_function(_cal_features)
         FRAUD_SCORE_MIN = float(np.percentile(_cal_scores, 1))   # deepest anomaly
         FRAUD_SCORE_MAX = float(np.percentile(_cal_scores, 99))  # most normal
@@ -89,6 +98,7 @@ try:
         # Fallback: use conservative fixed range
         FRAUD_SCORE_MIN = -0.5
         FRAUD_SCORE_MAX = 0.3
+        lime_background_data = None
         logger.warning("No training sample for fraud calibration — using fallback range")
 
     logger.info(f"All models and SHAP explainer loaded successfully")
@@ -179,6 +189,21 @@ class FraudRequest(BaseModel):
     business_age: float = 0
     gst_registered: int = 0
     business_type: str = "none"
+
+
+class PredictLoanRequest(BaseModel):
+    credit_score: int = Field(ge=300, le=900)
+    income: float = Field(gt=0, description="Annual income in INR")
+    loan_amount: float = Field(gt=0, description="Loan amount in INR")
+    term: int = Field(ge=6, le=360, default=36)
+    employment_type: Literal["salaried", "self_employed"] = Field(default="salaried")
+    applicant_id: Optional[str] = None
+
+
+class CounterfactualRequest(BaseModel):
+    applicant_id: Optional[str] = None
+    target: Literal["approve", "reject"] = Field(default="approve")
+    features: PredictLoanRequest
 
 
 # --- FastAPI App ---
@@ -575,6 +600,84 @@ def _get_feature_description(feature_key: str, value: float, shap_val: float) ->
     return descriptions.get(feature_key, f"{feature_key} = {value:.4f} {direction} default risk")
 
 
+def _to_scoring_request_from_predict(req: PredictLoanRequest) -> dict:
+    """Map simplified prediction payload to full scoring payload."""
+    monthly_income = max(req.income / 12.0, 1.0)
+    estimated_expense = monthly_income * 0.45
+    housing_type = "owned" if monthly_income >= 120_000 else "rent"
+    account_age = 4.0 if req.credit_score >= 700 else 2.0
+    loan_enquiries = 1 if req.credit_score >= 700 else 2
+
+    payload = {
+        "employment_type": req.employment_type,
+        "age": 34,
+        "credit_score": req.credit_score,
+        "monthly_income": monthly_income,
+        "loan_amount": req.loan_amount,
+        "previous_defaults": 0 if req.credit_score >= 700 else 1,
+        "account_age": account_age,
+        "loan_enquiries": loan_enquiries,
+        "housing_type": housing_type,
+        "total_expenditure": estimated_expense,
+        "other_fixed_expenses": estimated_expense * 0.1,
+        "risk_appetite": "moderate",
+        "loan_purpose": "personal",
+    }
+
+    if req.employment_type == "self_employed":
+        payload.update({
+            "gross_revenue": req.income,
+            "expected_margin": 0.2,
+            "business_rent": estimated_expense * 0.15,
+            "utilities_salaries": estimated_expense * 0.2,
+            "business_age": max(account_age, 2.0),
+            "gst_registered": 1,
+            "business_type": "service",
+        })
+
+    return payload
+
+
+def _reason_code_from_feature(feature_key: str, shap_value: float) -> str:
+    """Map model features to regulator-friendly reason codes."""
+    if feature_key in {"loan_amnt", "loan_percent_income", "income_to_loan"}:
+        return "High loan amount relative to income"
+    if feature_key in {"cb_default_enc", "loan_grade_enc"}:
+        return "Adverse credit profile indicators"
+    if feature_key in {"person_income", "person_emp_length"}:
+        return "Income and employment stability influenced affordability"
+    if feature_key in {"cb_person_cred_hist_length", "cred_hist_per_age"}:
+        return "Credit history depth influenced risk assessment"
+    if feature_key in {"loan_int_rate", "rate_grade_interaction"}:
+        return "Pricing and risk-grade interaction impacted credit risk"
+    if feature_key in {"age_emp_ratio", "person_age"}:
+        return "Profile maturity signals affected risk score"
+    if shap_value > 0:
+        return "Feature increased modeled default probability"
+    if shap_value < 0:
+        return "Feature reduced modeled default probability"
+    return "Neutral feature contribution"
+
+
+def _feature_name_from_lime_term(term_text: str) -> str:
+    """Extract likely feature key from LIME term text."""
+    lowered = term_text.lower()
+    for key in model_metadata["feature_columns"]:
+        if key.lower() in lowered:
+            return key
+    return term_text
+
+
+def _predict_default_proba_matrix(matrix: np.ndarray) -> np.ndarray:
+    """Predict default probability for matrix of feature rows."""
+    features_df = pd.DataFrame(matrix, columns=model_metadata["feature_columns"])
+    raw_pd = credit_model.predict_proba(features_df)[:, 1]
+    if isotonic_calibrator is not None:
+        calibrated = np.array(isotonic_calibrator.transform(raw_pd.tolist()))
+        return np.vstack([1 - calibrated, calibrated]).T
+    return np.vstack([1 - raw_pd, raw_pd]).T
+
+
 # --- API Endpoints ---
 
 @app.get("/health")
@@ -661,6 +764,7 @@ async def score_application(req: ScoringRequest):
             "pd": effective_pd,
             "approved": approved,
             "anomaly_score": anomaly_score,
+            "employment_group": "self_employed" if data.get("is_self_employed") else "salaried",
             "ts": datetime.now(timezone.utc).isoformat(),
         })
 
@@ -766,9 +870,287 @@ async def score_application(req: ScoringRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/predict_loan")
+async def predict_loan(req: PredictLoanRequest):
+    """Simplified loan prediction endpoint for explainability dashboards."""
+    try:
+        scoring_payload = _to_scoring_request_from_predict(req)
+        scoring_result = await score_application(ScoringRequest(**scoring_payload))
+        top_shap = scoring_result["shap_values"][:6]
+        shap_map = {
+            row["feature_key"]: row["shap_value"] for row in top_shap
+        }
+        top_features = [row["feature_key"] for row in top_shap[:3]]
+        reason_codes = []
+        for row in top_shap[:5]:
+            reason = _reason_code_from_feature(row["feature_key"], row["shap_value"])
+            if reason not in reason_codes:
+                reason_codes.append(reason)
+
+        return {
+            "applicant_id": req.applicant_id,
+            "approval_probability": scoring_result["approval_probability"],
+            "decision": "approved" if scoring_result["approved"] else "rejected",
+            "pd": scoring_result["pd"],
+            "shap_values": shap_map,
+            "top_features": top_features,
+            "reason_codes": reason_codes,
+            "model_metadata": scoring_result["model_metadata"],
+            "financial_ratios": scoring_result["financial_ratios"],
+            "raw": scoring_result,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/explain_lime")
+async def explain_lime(req: PredictLoanRequest):
+    """Optional LIME local explanation endpoint for research comparisons."""
+    if not HAS_LIME:
+        raise HTTPException(status_code=501, detail="LIME is not installed in this environment")
+
+    try:
+        scoring_payload = _to_scoring_request_from_predict(req)
+        features_df = prepare_features(scoring_payload)
+
+        background = lime_background_data
+        if background is None or len(background) < 20:
+            background = np.repeat(features_df.values, 50, axis=0)
+
+        explainer = LimeTabularExplainer(
+            training_data=background,
+            feature_names=model_metadata["feature_columns"],
+            class_names=["non_default", "default"],
+            mode="classification",
+            discretize_continuous=True,
+        )
+
+        lime_exp = explainer.explain_instance(
+            data_row=features_df.iloc[0].values,
+            predict_fn=_predict_default_proba_matrix,
+            num_features=6,
+            top_labels=1,
+        )
+
+        label = lime_exp.top_labels[0] if lime_exp.top_labels else 1
+        weights = lime_exp.as_list(label=label)
+        mapped = {}
+        for term, weight in weights:
+            key = _feature_name_from_lime_term(term)
+            mapped[key] = round(float(weight), 4)
+
+        return {
+            "lime_weights": mapped,
+            "method": "lime_tabular",
+            "class_explained": "default",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/counterfactual")
+async def counterfactual(req: CounterfactualRequest):
+    """Generate simple actionable counterfactual suggestions for loan outcomes."""
+    try:
+        base_payload = _to_scoring_request_from_predict(req.features)
+        base = await score_application(ScoringRequest(**base_payload))
+        current_approved = bool(base["approved"])
+        want_approved = req.target == "approve"
+
+        if current_approved == want_approved:
+            return {
+                "applicant_id": req.applicant_id or req.features.applicant_id,
+                "minimal_changes": {},
+                "new_probability": base["approval_probability"],
+                "message": "Current decision already meets requested target",
+            }
+
+        candidates = []
+
+        def add_candidate(delta_income=0.0, delta_loan=0.0, delta_score=0):
+            candidate = dict(base_payload)
+            candidate["monthly_income"] = max(base_payload["monthly_income"] * (1 + delta_income), 1)
+            candidate["loan_amount"] = max(base_payload["loan_amount"] * (1 + delta_loan), 10_000)
+            candidate["credit_score"] = int(np.clip(base_payload["credit_score"] + delta_score, 300, 900))
+            candidates.append((candidate, delta_income, delta_loan, delta_score))
+
+        if want_approved:
+            for di in [0.10, 0.20, 0.30, 0.50, 0.80, 1.00]:
+                add_candidate(delta_income=di)
+            for dl in [-0.10, -0.20, -0.30, -0.40, -0.50]:
+                add_candidate(delta_loan=dl)
+            for ds in [25, 50, 75, 100, 150]:
+                add_candidate(delta_score=ds)
+            add_candidate(delta_income=0.15, delta_loan=-0.10)
+            add_candidate(delta_income=0.20, delta_score=25)
+            add_candidate(delta_loan=-0.15, delta_score=25)
+            add_candidate(delta_income=0.50, delta_loan=-0.30)
+            add_candidate(delta_income=0.50, delta_score=75)
+            add_candidate(delta_loan=-0.30, delta_score=100)
+        else:
+            for di in [-0.10, -0.20, -0.30, -0.40, -0.50]:
+                add_candidate(delta_income=di)
+            for dl in [0.10, 0.20, 0.30, 0.40, 0.50]:
+                add_candidate(delta_loan=dl)
+            for ds in [-25, -50, -75, -100, -150]:
+                add_candidate(delta_score=ds)
+            add_candidate(delta_income=-0.15, delta_loan=0.10)
+            add_candidate(delta_income=-0.20, delta_score=-25)
+            add_candidate(delta_loan=0.15, delta_score=-25)
+
+        feasible_options = []
+        for candidate, di, dl, ds in candidates:
+            result = await score_application(ScoringRequest(**candidate))
+            approved = bool(result["approved"])
+            if approved == want_approved:
+                cost = abs(di) + abs(dl) + (abs(ds) / 200)
+                option_changes = {}
+                if di != 0:
+                    option_changes["income"] = f"{di * 100:+.0f}%"
+                if dl != 0:
+                    option_changes["loan_amount"] = f"{dl * 100:+.0f}%"
+                if ds != 0:
+                    option_changes["credit_score"] = f"+{ds}"
+
+                feasible_options.append({
+                    "minimal_changes": option_changes,
+                    "new_probability": result["approval_probability"],
+                    "cost": round(cost, 4),
+                })
+
+        if not feasible_options:
+            return {
+                "applicant_id": req.applicant_id or req.features.applicant_id,
+                "minimal_changes": {},
+                "new_probability": base["approval_probability"],
+                "message": "No feasible counterfactual found within configured action bounds",
+            }
+
+        feasible_options.sort(key=lambda x: x["cost"])
+        best = feasible_options[0]
+
+        return {
+            "applicant_id": req.applicant_id or req.features.applicant_id,
+            "minimal_changes": best["minimal_changes"],
+            "new_probability": best["new_probability"],
+            "options": feasible_options[:3],
+            "target": req.target,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/global_insights")
+async def global_insights():
+    """Expose global explainability and monitoring metrics for dashboard views."""
+    approvals = [p["approved"] for p in _prediction_log]
+    pds = [p["pd"] for p in _prediction_log]
+    salaried_rows = [p for p in _prediction_log if p.get("employment_group") == "salaried"]
+    self_emp_rows = [p for p in _prediction_log if p.get("employment_group") == "self_employed"]
+
+    def _approval_rate(rows):
+        if not rows:
+            return None
+        return round(float(np.mean([r["approved"] for r in rows])), 4)
+
+    group_rates = {
+        "salaried": _approval_rate(salaried_rows),
+        "self_employed": _approval_rate(self_emp_rows),
+    }
+
+    disparity = None
+    if group_rates["salaried"] is not None and group_rates["self_employed"] is not None:
+        disparity = round(abs(group_rates["salaried"] - group_rates["self_employed"]), 4)
+
+    return {
+        "feature_importance": model_metadata.get("feature_importance", []),
+        "approval_distribution": {
+            "approved": int(sum(approvals)) if approvals else 0,
+            "rejected": int(len(approvals) - sum(approvals)) if approvals else 0,
+            "samples": len(approvals),
+        },
+        "pd_summary": {
+            "mean_pd": round(float(np.mean(pds)), 4) if pds else None,
+            "median_pd": round(float(np.median(pds)), 4) if pds else None,
+        },
+        "fairness_metrics": {
+            "status": "estimated",
+            "approval_rate_by_employment": group_rates,
+            "demographic_parity_gap": disparity,
+            "note": "Estimated from non-protected proxy groups only (employment type); add protected attributes in governed audit data for formal fairness testing",
+        },
+    }
+
+
+@app.get("/global_shap_summary")
+async def global_shap_summary():
+    """Compute global SHAP summary statistics from training data."""
+    try:
+        if lime_background_data is None or len(lime_background_data) == 0:
+            return {
+                "status": "unavailable",
+                "message": "Training data not available for SHAP computation",
+                "feature_importance": model_metadata.get("feature_importance", []),
+            }
+
+        # Sample training data for faster computation (max 100 samples)
+        sample_size = min(100, len(lime_background_data))
+        sample_indices = np.random.choice(len(lime_background_data), sample_size, replace=False)
+        sample_data = lime_background_data[sample_indices]
+
+        # Compute SHAP values
+        shap_values = shap_explainer.shap_values(sample_data)
+        
+        # Handle both binary and multi-class output
+        if isinstance(shap_values, list):
+            # Multi-class case: use first class (default/positive)
+            shap_values_to_use = shap_values[1] if len(shap_values) > 1 else shap_values[0]
+        else:
+            shap_values_to_use = shap_values
+
+        # Compute mean absolute SHAP values (global importance)
+        mean_abs_shap = np.abs(shap_values_to_use).mean(axis=0)
+        
+        # Create feature importance list
+        feature_names = model_metadata.get("feature_columns", [])
+        importance_list = [
+            {
+                "feature": feature_names[i] if i < len(feature_names) else f"Feature {i}",
+                "importance": float(mean_abs_shap[i]),
+                "impact_direction": "positive" if float(np.mean(shap_values_to_use[:, i])) > 0 else "negative",
+            }
+            for i in range(len(mean_abs_shap))
+        ]
+        
+        # Sort by importance descending
+        importance_list.sort(key=lambda x: x["importance"], reverse=True)
+
+        # Create summary data for visualization
+        summary_data = {
+            "features": [item["feature"] for item in importance_list[:10]],
+            "impacts": [item["importance"] for item in importance_list[:10]],
+            "directions": [item["impact_direction"] for item in importance_list[:10]],
+        }
+
+        return {
+            "status": "available",
+            "global_feature_importance": importance_list,
+            "shap_summary_data": summary_data,
+            "samples_used": sample_size,
+            "computation_time_ms": "real-time",
+        }
+    except Exception as e:
+        logger.error(f"Global SHAP computation error: {e}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "feature_importance": model_metadata.get("feature_importance", []),
+        }
+
+
 @app.post("/fraud_score")
 async def fraud_score(req: FraudRequest):
-    """Dedicated fraud scoring endpoint."""
+    """Dedicated fraud scoring endpoint (Legacy - for loan applications)."""
     try:
         data = req.model_dump()
         features_df = prepare_features(data)
@@ -788,6 +1170,163 @@ async def fraud_score(req: FraudRequest):
             "flags": flags,
         }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── Real-Time Transaction Fraud Scoring (NEW) ───
+
+class TransactionFraudRequest(BaseModel):
+    """Real-time transaction fraud scoring request."""
+    transaction_id: str = Field(description="Unique transaction ID")
+    user_id: str = Field(description="User ID")
+    amount: float = Field(gt=0, description="Transaction amount")
+    merchant: Optional[str] = Field(default=None, description="Merchant name")
+    channel: str = Field(description="Transaction channel (UPI, CARD, etc)")
+    device_id: Optional[str] = Field(default=None, description="Device identifier")
+    ip_address: Optional[str] = Field(default=None, description="IP address")
+    geo_location: Optional[dict] = Field(default=None, description="Geographic location")
+    transaction_type: str = Field(default="PAYMENT", description="Transaction type")
+    timestamp: Optional[str] = Field(default=None, description="ISO timestamp")
+    previous_amounts: Optional[list] = Field(default=None, description="Recent transaction amounts")
+    previous_locations: Optional[list] = Field(default=None, description="Recent locations")
+
+
+def score_transaction_fraud(transaction_data: dict) -> dict:
+    """
+    Score a transaction for fraud using trained Isolation Forest model.
+    
+    Returns fraud probability (0-1) and recommendations.
+    """
+    try:
+        fraud_model_path = os.path.join(MODEL_DIR, "fraud_isolation_forest.joblib")
+        fraud_scaler_path = os.path.join(MODEL_DIR, "fraud_scaler.joblib")
+        fraud_meta_path = os.path.join(MODEL_DIR, "fraud_model_metadata.json")
+
+        if not (os.path.exists(fraud_model_path) and os.path.exists(fraud_scaler_path) and os.path.exists(fraud_meta_path)):
+            return {
+                "error": "Fraud transaction model artifacts missing. Training required.",
+                "fraud_score": None,
+                "is_anomaly": False,
+            }
+
+        iso_forest = joblib.load(fraud_model_path)
+        scaler = joblib.load(fraud_scaler_path)
+        with open(fraud_meta_path, "r") as meta_file:
+            fraud_meta = json.load(meta_file)
+
+        amount = float(transaction_data.get("amount", 0.0))
+        timestamp = transaction_data.get("timestamp")
+        if timestamp:
+            try:
+                tx_dt = pd.to_datetime(timestamp, utc=True)
+                time_hour = float(tx_dt.hour)
+            except Exception:
+                time_hour = float(datetime.now(timezone.utc).hour)
+        else:
+            time_hour = float(datetime.now(timezone.utc).hour)
+
+        prev_amounts = transaction_data.get("previous_amounts") or []
+        prev_mean = float(np.mean(prev_amounts)) if len(prev_amounts) > 0 else max(amount, 1.0)
+        prev_std = float(np.std(prev_amounts)) if len(prev_amounts) > 1 else max(prev_mean * 0.1, 1.0)
+
+        features_dict = {
+            "log_amount": float(np.log1p(max(amount, 0.0))),
+            "normalized_amount": float(amount / 100000.0),
+            "time_hour": time_hour,
+        }
+
+        for i in range(1, 29):
+            features_dict[f"V{i}"] = 0.0
+
+        features_dict["log_amount_squared"] = float(features_dict["log_amount"] ** 2)
+        features_dict["amount_to_mean_ratio"] = float(amount / max(prev_mean, 1.0))
+        features_dict["log_amount_zscore"] = float((features_dict["log_amount"] - np.log1p(max(prev_mean, 1.0))) / max(prev_std, 1.0))
+        features_dict["time_hour_zscore"] = float((time_hour - 12.0) / 6.0)
+
+        feature_names = fraud_meta.get("feature_names", list(features_dict.keys()))
+        for name in feature_names:
+            if name not in features_dict:
+                features_dict[name] = 0.0
+
+        features_df = pd.DataFrame([features_dict])[feature_names]
+
+        X_scaled = scaler.transform(features_df)
+        anomaly_score = float(iso_forest.decision_function(X_scaled)[0])
+        is_anomaly = int(iso_forest.predict(X_scaled)[0]) == -1
+
+        score_min = float(fraud_meta.get("score_distribution", {}).get("p1", -0.5))
+        score_max = float(fraud_meta.get("score_distribution", {}).get("p99", 0.3))
+        fraud_probability = float(np.clip((score_max - anomaly_score) / max(score_max - score_min, 1e-6), 0.0, 1.0))
+        
+        # Fraud type detection based on patterns
+        fraud_type = "normal"
+        fraud_signals = []
+        
+        if is_anomaly:
+            fraud_type = "anomaly_detected"
+            fraud_signals.append("Statistical anomaly")
+        
+        if transaction_data.get('amount', 0) > 500000:
+            fraud_signals.append("High transaction amount")
+        
+        if transaction_data.get('previous_amounts'):
+            avg_prev = np.mean(transaction_data['previous_amounts'])
+            curr = transaction_data.get('amount', 0)
+            if curr > avg_prev * 3:
+                fraud_signals.append("Velocity spike (3x usual amount)")
+                fraud_type = "velocity_anomaly"
+        
+        # Determine recommendation
+        if fraud_probability > 0.7:
+            recommendation = "BLOCK"
+            recommended_action = "Block transaction and notify user"
+        elif fraud_probability > 0.5:
+            recommendation = "REVIEW"
+            recommended_action = "Request step-up verification"
+        elif fraud_probability > 0.3:
+            recommendation = "MONITOR"
+            recommended_action = "Monitor for patterns"
+        else:
+            recommendation = "APPROVE"
+            recommended_action = "Approve transaction"
+        
+        return {
+            "transaction_id": transaction_data.get('transaction_id'),
+            "fraud_score": float(np.clip(fraud_probability, 0, 1)),
+            "fraud_probability": float(np.clip(fraud_probability, 0, 1)),
+            "is_anomaly": bool(is_anomaly),
+            "anomaly_score": round(float(anomaly_score), 4),
+            "fraud_type": fraud_type,
+            "fraud_signals": fraud_signals,
+            "recommendation": recommendation,
+            "recommended_action": recommended_action,
+            "confidence": "high" if is_anomaly else "medium" if fraud_probability > 0.3 else "low",
+            "model_version": "FRAUD-IF-v2.0",
+        }
+        
+    except Exception as e:
+        logger.error(f"Transaction fraud scoring error: {e}")
+        return {
+            "error": str(e),
+            "fraud_score": None,
+            "is_anomaly": False,
+        }
+
+
+@app.post("/score_transaction")
+async def score_transaction(req: TransactionFraudRequest):
+    """
+    Real-time transaction fraud scoring endpoint.
+    
+    Returns fraud score (0-1), recommendations, and signals.
+    Suitable for production transaction monitoring.
+    """
+    try:
+        data = req.model_dump()
+        result = score_transaction_fraud(data)
+        return result
+    except Exception as e:
+        logger.error(f"Transaction fraud endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
