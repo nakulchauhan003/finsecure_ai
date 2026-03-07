@@ -28,7 +28,7 @@ import { explainLoanDecision, type AILoanExplanation } from '../../utils/gemini'
 type RiskAssessmentContext = {
   applicantId?: string;
   name?: string;
-  employmentType?: 'salaried' | 'self_employed';
+  employmentType?: 'salaried' | 'self_employed' | 'self-employed' | string;
   creditScore?: number;
   annualIncome?: number;
   loanAmount?: number;
@@ -38,6 +38,12 @@ type RiskAssessmentContext = {
 const STORAGE_KEY = 'finsecure.latest_risk_assessment';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
+function normalizeEmploymentType(value?: string): 'salaried' | 'self_employed' {
+  if (!value) return 'salaried';
+  const normalized = value.toLowerCase().replace(/[-\s]/g, '_');
+  return normalized === 'self_employed' ? 'self_employed' : 'salaried';
+}
+
 function buildRequest(context: RiskAssessmentContext | null): PredictLoanRequest {
   return {
     applicant_id: context?.applicantId || 'XAI-DEMO-001',
@@ -45,7 +51,7 @@ function buildRequest(context: RiskAssessmentContext | null): PredictLoanRequest
     income: Number(context?.annualIncome || 900000),
     loan_amount: Number(context?.loanAmount || 500000),
     term: Number(context?.term || 36),
-    employment_type: context?.employmentType || 'salaried',
+    employment_type: normalizeEmploymentType(context?.employmentType),
   };
 }
 
@@ -229,12 +235,12 @@ export default function LoanExplainabilityDashboard() {
       decision: prediction.decision,
       approval_probability: prediction.approval_probability,
       pd: prediction.pd,
-      reason_codes: prediction.reason_codes,
+      reason_codes: reasonCodes,
       top_features: prediction.top_features,
       shap_values: prediction.shap_values,
       counterfactual: counterfactual?.minimal_changes || null,
       ai_explanation: aiExplanation,
-      model_card: prediction.model_metadata,
+      model_card: modelMetadata,
     };
 
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
@@ -259,10 +265,10 @@ export default function LoanExplainabilityDashboard() {
           approval_probability: prediction.approval_probability,
           pd: prediction.pd,
           shap_values: prediction.shap_values,
-          reason_codes: prediction.reason_codes,
+          reason_codes: reasonCodes,
           counterfactual_suggestions: counterfactual?.minimal_changes || {},
           global_insights: globalInsights,
-          model_metadata: prediction.model_metadata,
+          model_metadata: modelMetadata,
           financial_ratios: prediction.financial_ratios,
           lime_weights: lime?.lime_weights,
           gemini_explanation: aiExplanation?.narrativeExplanation,
@@ -322,6 +328,14 @@ export default function LoanExplainabilityDashboard() {
       </div>
     );
   }
+
+  const reasonCodes = Array.isArray(prediction.reason_codes) ? prediction.reason_codes : [];
+  const modelMetadata = prediction.model_metadata ?? {
+    model_version: 'N/A',
+    n_features: 0,
+    auc: 0,
+    train_date: 'N/A',
+  };
 
   const ApprovedIcon = prediction.decision === 'approved' ? CheckCircle : XCircle;
 
@@ -464,7 +478,7 @@ export default function LoanExplainabilityDashboard() {
                           {counterfactual.options.slice(0, 3).map((option, idx) => (
                             <div key={`option-${idx}`} className="rounded border border-cyan-400/20 p-2 text-xs">
                               <p className="font-semibold">Option {idx + 1}</p>
-                              <p>Changes: {Object.entries(option.minimal_changes).map(([k, v]) => `${k} ${v}`).join(', ') || 'No change'}</p>
+                              <p>Changes: {Object.entries(option.minimal_changes || {}).map(([k, v]) => `${k} ${v}`).join(', ') || 'No change'}</p>
                               <p>Projected Approval Probability: {formatPct(option.new_probability)}</p>
                             </div>
                           ))}
@@ -596,20 +610,24 @@ export default function LoanExplainabilityDashboard() {
           <div className="space-y-4">
             <div className="rounded-xl border border-white/20 bg-white/5 p-4">
               <h3 className="font-semibold mb-2">Top Reasons</h3>
-              <ol className="space-y-2 text-sm text-indigo-100 list-decimal pl-5">
-                {prediction.reason_codes.slice(0, 5).map((reason, idx) => (
-                  <li key={`${reason}-${idx}`}>{reason}</li>
-                ))}
-              </ol>
+              {reasonCodes.length === 0 ? (
+                <p className="text-sm text-indigo-200">Reason codes are unavailable for this prediction.</p>
+              ) : (
+                <ol className="space-y-2 text-sm text-indigo-100 list-decimal pl-5">
+                  {reasonCodes.slice(0, 5).map((reason, idx) => (
+                    <li key={`${reason}-${idx}`}>{reason}</li>
+                  ))}
+                </ol>
+              )}
             </div>
 
             <div className="rounded-xl border border-white/20 bg-white/5 p-4">
               <h3 className="font-semibold mb-2">Model Card</h3>
               <div className="space-y-1 text-sm text-indigo-100">
-                <p>Model Version: <strong>{prediction.model_metadata.model_version}</strong></p>
-                <p>Features: <strong>{prediction.model_metadata.n_features}</strong></p>
-                <p>AUC: <strong>{prediction.model_metadata.auc}</strong></p>
-                <p>Last Retrain: <strong>{prediction.model_metadata.train_date}</strong></p>
+                <p>Model Version: <strong>{modelMetadata.model_version}</strong></p>
+                <p>Features: <strong>{modelMetadata.n_features}</strong></p>
+                <p>AUC: <strong>{modelMetadata.auc}</strong></p>
+                <p>Last Retrain: <strong>{modelMetadata.train_date}</strong></p>
               </div>
             </div>
 
