@@ -19,6 +19,24 @@ ml-service/data2/
 ml-service/models/*.joblib
 ml-service/models/*.pkl
 ml-service/models/*.bin
+ml-service/models/*.onnx
+ml-service/models/*.h5
+ml-service/models/*.keras
+ml-service/models/*.pt
+ml-service/models/*.pth
+ml-service/models/*.ckpt
+ml-service/models/*.safetensors
+*.parquet
+*.feather
+*.npy
+*.npz
+*.h5
+*.hdf5
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.safetensors
 *.csv
 
 # Secrets — NEVER commit
