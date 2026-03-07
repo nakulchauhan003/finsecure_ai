@@ -118,7 +118,7 @@ function App() {
 
       setIsLoading(false);
 
-      // Fire AI AI prediction in background
+      // Fire AI prediction in background
       setAiLoading(true);
       setAiPrediction(null);
       predictInterestRate({

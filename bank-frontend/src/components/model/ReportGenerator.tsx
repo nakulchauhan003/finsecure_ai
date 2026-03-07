@@ -315,7 +315,7 @@ export default function ReportGenerator() {
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 170);
       doc.text(`FinScope Analytics Report • Page ${i} of ${pageCount} • Confidential`, 14, doc.internal.pageSize.getHeight() - 10);
-      doc.text('Powered by AI — XGBoost, SHAP, AI', pageWidth - 80, doc.internal.pageSize.getHeight() - 10);
+      doc.text('Powered by AI — XGBoost, SHAP', pageWidth - 80, doc.internal.pageSize.getHeight() - 10);
     }
 
     // Save

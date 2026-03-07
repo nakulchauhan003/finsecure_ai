@@ -288,7 +288,7 @@ const PersonalizedRateComparison = () => {
       setLoading(false);
       setStep(2);
 
-      // Fire AI AI counter-offer in background
+      // Fire AI counter-offer in background
       setAiLoading(true);
       setAiOffer(null);
       generateCounterOffer(
@@ -627,10 +627,10 @@ const PersonalizedRateComparison = () => {
                 </div>
               </div>
 
-              {/* --- AI AI Counter-Offer Insight --- */}
+              {/* --- AI Counter-Offer Insight --- */}
               <div className="rounded-xl p-5 mb-6 border border-purple-500/30 bg-gradient-to-r from-purple-600/20 to-pink-600/20">
                 <h4 className="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" /> AI AI Strategy
+                  <Sparkles className="w-4 h-4" /> AI Strategy
                 </h4>
                 {aiLoading ? (
                   <div className="flex items-center gap-2 text-purple-300 text-sm">

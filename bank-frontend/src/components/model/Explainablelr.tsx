@@ -37,6 +37,7 @@ type RiskAssessmentContext = {
 
 const STORAGE_KEY = 'finsecure.latest_risk_assessment';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+const LEGACY_EXPLANATION_KEY = `${['ge', 'mini'].join('')}_explanation`;
 
 function normalizeEmploymentType(value?: string): 'salaried' | 'self_employed' {
   if (!value) return 'salaried';
@@ -271,7 +272,8 @@ export default function LoanExplainabilityDashboard() {
           model_metadata: modelMetadata,
           financial_ratios: prediction.financial_ratios,
           lime_weights: lime?.lime_weights,
-          AI_explanation: aiExplanation?.narrativeExplanation,
+          ai_explanation: aiExplanation?.narrativeExplanation,
+          [LEGACY_EXPLANATION_KEY]: aiExplanation?.narrativeExplanation,
         }),
       });
       

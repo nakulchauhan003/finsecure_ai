@@ -129,7 +129,7 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
-app.post('/api/gemini', async (req, res) => {
+app.post(['/api/gemini', '/api/ai'], async (req, res) => {
   try {
     const { prompt, systemInstruction, useSearch, responseType } = req.body;
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });

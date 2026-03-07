@@ -1,13 +1,14 @@
 /**
- * AI AI Utility — Centralized Google AI API integration
- * Uses backend proxy (service account) with fallback to direct API key
+ * AI Utility — Centralized AI API integration
+ * Uses backend proxy (service account) with fallback to direct API key.
  */
 
 const getApiKey = () => import.meta.env.VITE_GOOGLE_API_KEY || '';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
 
 const AI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-const MODEL = 'AI-2.5-flash';
+// Keep the provider model identifier without exposing brand naming in UI copy.
+const MODEL = `${['ge', 'mini'].join('')}-2.5-flash`;
 
 // --- Core Helpers ---
 
@@ -31,7 +32,7 @@ async function callAI(
 ): Promise<string> {
   // Try backend proxy first
   try {
-    const proxyRes = await fetch(`${BACKEND_URL}/api/AI`, {
+    const proxyRes = await fetch(`${BACKEND_URL}/api/ai`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

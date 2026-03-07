@@ -221,7 +221,7 @@ export default function RegulatoryCompliance() {
     setChecks(results);
     setShowResults(true);
 
-    // Fire AI AI check in background
+    // Fire AI check in background
     setAiLoading(true);
     setAiCompliance(null);
     checkCompliance(loanData as unknown as Record<string, unknown>).then(result => {
@@ -338,10 +338,10 @@ export default function RegulatoryCompliance() {
 
           {/* Charts row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* AI AI Compliance Insight */}
+            {/* AI Compliance Insight */}
             <div className="md:col-span-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-5">
               <h3 className="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
-                ✨ AI AI Regulatory Analysis
+                ✨ AI Regulatory Analysis
               </h3>
               {aiLoading ? (
                 <div className="flex items-center gap-2 text-purple-300 text-sm">
