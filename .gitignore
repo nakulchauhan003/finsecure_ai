@@ -1,6 +1,21 @@
 /.turbo
 node_modules/
 node_modules_old/
+**/node_modules/
+**/.turbo/
+**/dist/
+**/dist-ssr/
+**/build/
+**/coverage/
+**/.cache/
+**/.vite/
+**/.next/
+**/.parcel-cache/
+*.tsbuildinfo
+*.pid
+*.seed
+*.out
+*.err
 
 # Python
 __pycache__/
@@ -46,6 +61,9 @@ service-account*.json
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
 # Explicit app secrets
 bank-frontend/.env
