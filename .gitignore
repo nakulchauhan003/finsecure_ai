@@ -46,3 +46,11 @@ service-account*.json
 .env
 .env.*
 !.env.example
+
+# Explicit app secrets
+bank-frontend/.env
+bank-frontend/.env.*
+bank-backend/.env
+bank-backend/.env.*
+node_modules/bank-backend/.env
+node_modules/frontend/.env
