@@ -12,7 +12,8 @@ import PDFDocument from 'pdfkit';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const PORT = 3002;
+const DEFAULT_PORT = Number(process.env.PORT) || 3002;
+const PORT_RETRY_LIMIT = Number(process.env.PORT_RETRY_LIMIT) || 10;
 const PROJECT_ID = 'shirokuma-487907';
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const CREDENTIALS_PATH = resolve(__dirname, '..', 'bank-frontend', 'credentials.json');
@@ -106,7 +107,27 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY || 'invalid-key');
 
 const app = express();
 app.use(helmet());
-app.use(cors({ origin: ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'] }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    try {
+      const parsed = new URL(origin);
+      const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+      if (isLocalhost) {
+        callback(null, true);
+        return;
+      }
+    } catch {
+      // Ignore invalid origins and let the request be rejected below.
+    }
+
+    callback(new Error('Origin not allowed by CORS'));
+  },
+}));
 app.use(express.json({ limit: '20mb' }));
 app.use('/api/', rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false }));
 
@@ -1019,8 +1040,24 @@ app.post('/api/risk/generate_xai_report', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`FinSecure AI Backend running on http://localhost:${PORT}`);
-  console.log(`Supabase URL: ${SUPABASE_URL}`);
-  console.log(`Supabase key loaded: ${SUPABASE_KEY ? 'yes' : 'no'}`);
-});
+function startServer(port, retriesLeft) {
+  const server = app.listen(port, () => {
+    console.log(`FinSecure AI Backend running on http://localhost:${port}`);
+    console.log(`Supabase URL: ${SUPABASE_URL}`);
+    console.log(`Supabase key loaded: ${SUPABASE_KEY ? 'yes' : 'no'}`);
+  });
+
+  server.on('error', (err) => {
+    if (err?.code === 'EADDRINUSE' && retriesLeft > 0) {
+      const nextPort = port + 1;
+      console.warn(`Port ${port} is busy. Retrying on ${nextPort}...`);
+      startServer(nextPort, retriesLeft - 1);
+      return;
+    }
+
+    console.error('Failed to start backend server:', err);
+    process.exit(1);
+  });
+}
+
+startServer(DEFAULT_PORT, PORT_RETRY_LIMIT);

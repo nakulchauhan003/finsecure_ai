@@ -9,11 +9,13 @@
     "ml-service"
   ],
   "scripts": {
-    "dev": "turbo run dev",
+    "dev:clean": "npx kill-port 3000 3001 3002 3003 3004 3005 8000",
+    "dev": "npm run dev:clean && turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint"
   },
   "devDependencies": {
+    "kill-port": "^2.0.1",
     "turbo": "^2.5.6"
   },
   "dependencies": {

@@ -152,6 +152,28 @@ function getSeverity(score: number): Severity {
   return 'LOW';
 }
 
+// Demo fraud alert for showcase when backend is unavailable
+const DEMO_FRAUD_ALERT: FraudAlert = {
+  id: 'demo-alert-001',
+  transaction_id: 'TXN-DEMO-20260422',
+  user_id: '550e8400-e29b-41d4-a716-446655440001',
+  fraud_score: 0.78,
+  fraud_type: 'ANOMALY',
+  fraud_signals: ['Unusual Amount', 'Geo Jump', 'Device Mismatch'],
+  status: 'pending',
+  analyst_notes: '[DEMO] UPI transfer to new merchant from unusual location',
+  confirmed_fraud: false,
+  created_at: new Date(Date.now() - 30 * 60000).toISOString(),
+  transactions: {
+    amount: 45000,
+    channel: 'UPI',
+    device_id: 'device-xyz-unusual',
+    geo_location: { city: 'Singapore', country: 'SG' },
+    merchant: 'Amazon Pay',
+    created_at: new Date(Date.now() - 30 * 60000).toISOString(),
+  },
+};
+
 function formatCurrency(value?: number) {
   if (value === undefined || Number.isNaN(value)) return '-';
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -286,6 +308,16 @@ const FraudDetectionDashboard = () => {
     refreshAll()
       .catch((err) => {
         setConnectionError(err.message || 'Fraud system temporarily unavailable. Retrying connection...');
+        // Show demo alert when backend fails for showcase purposes
+        setAlerts([DEMO_FRAUD_ALERT]);
+        setStats({
+          totalTransactions: 1250,
+          flaggedCases: 1,
+          resolvedToday: 0,
+          averageFraudScore: 0.45,
+          alertRate: 0.08,
+          timestamp: new Date().toISOString(),
+        });
       })
       .finally(() => setLoading(false));
   }, [refreshAll]);
